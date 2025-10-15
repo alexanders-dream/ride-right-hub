@@ -4,10 +4,10 @@ import touringImage from "@/assets/touring-category.jpg";
 import adventureImage from "@/assets/adventure-category.jpg";
 
 const categories = [
-  { name: "Cruiser", image: cruiserImage, count: "250+ bikes" },
-  { name: "Sport", image: sportImage, count: "180+ bikes" },
-  { name: "Touring", image: touringImage, count: "120+ bikes" },
-  { name: "Adventure", image: adventureImage, count: "95+ bikes" },
+  { name: "Cruiser", image: cruiserImage, count: "250+ bikes", link: "/listings?category=cruiser" },
+  { name: "Sport", image: sportImage, count: "180+ bikes", link: "/listings?category=sport" },
+  { name: "Touring", image: touringImage, count: "120+ bikes", link: "/listings?category=touring" },
+  { name: "Adventure", image: adventureImage, count: "95+ bikes", link: "/listings?category=adventure" },
 ];
 
 const CategoryBrowse = () => {
@@ -21,8 +21,9 @@ const CategoryBrowse = () => {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
           {categories.map((category, index) => (
-            <div 
+            <a 
               key={category.name}
+              href={category.link}
               className="group relative overflow-hidden rounded-lg border border-border hover:border-primary transition-all duration-300 cursor-pointer hover:shadow-glow animate-scale-in"
               style={{ animationDelay: `${index * 100}ms` }}
             >
@@ -41,7 +42,7 @@ const CategoryBrowse = () => {
                 </h3>
                 <p className="text-muted-foreground">{category.count}</p>
               </div>
-            </div>
+            </a>
           ))}
         </div>
       </div>

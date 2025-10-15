@@ -42,8 +42,8 @@ const HeroSection = () => {
 
           {/* CTAs */}
           <div className="flex flex-wrap gap-4">
-            <Button size="lg" className="text-lg px-8">
-              Shop All Motorcycles
+            <Button size="lg" className="text-lg px-8" asChild>
+              <a href="/listings">Shop All Motorcycles</a>
             </Button>
             <Button size="lg" variant="outline" className="text-lg px-8 border-primary text-primary hover:bg-primary hover:text-primary-foreground">
               Sell Your Bike
