@@ -3,6 +3,7 @@ import { Search, Grid3x3, List, Map as MapIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import Navbar from "@/components/Navbar";
 import ListingFilters from "@/components/ListingFilters";
 import ListingCard from "@/components/ListingCard";
 import Footer from "@/components/Footer";
@@ -102,6 +103,8 @@ const Listings = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Navbar />
+      
       {/* Header with Search */}
       <div className="bg-card border-b border-border">
         <div className="container mx-auto px-4 py-6">

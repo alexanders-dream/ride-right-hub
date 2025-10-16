@@ -1,4 +1,5 @@
 import { Heart, MapPin } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,8 +29,9 @@ interface ListingCardProps {
 const ListingCard = ({ listing, viewMode, isSaved, onToggleSave }: ListingCardProps) => {
   if (viewMode === "list") {
     return (
-      <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
-        <div className="flex">
+      <Link to={`/listing/${listing.id}`}>
+        <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+          <div className="flex">
           <div className="w-64 h-48 flex-shrink-0 relative">
             <img
               src={listing.image}
@@ -86,12 +88,14 @@ const ListingCard = ({ listing, viewMode, isSaved, onToggleSave }: ListingCardPr
           </CardContent>
         </div>
       </Card>
+      </Link>
     );
   }
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group">
-      <div className="relative">
+    <Link to={`/listing/${listing.id}`}>
+      <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group">
+        <div className="relative">
         <div className="aspect-[4/3] overflow-hidden">
           <img
             src={listing.image}
@@ -136,6 +140,7 @@ const ListingCard = ({ listing, viewMode, isSaved, onToggleSave }: ListingCardPr
         </div>
       </CardContent>
     </Card>
+    </Link>
   );
 };
 
