@@ -95,6 +95,17 @@ const Listings = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [savedListings, setSavedListings] = useState<number[]>([]);
 
+  // Filter listings based on search query
+  const filteredListings = mockListings.filter(listing => {
+    const searchLower = searchQuery.toLowerCase();
+    return (
+      listing.make.toLowerCase().includes(searchLower) ||
+      listing.model.toLowerCase().includes(searchLower) ||
+      listing.location.toLowerCase().includes(searchLower) ||
+      listing.year.toString().includes(searchLower)
+    );
+  });
+
   const toggleSave = (id: number) => {
     setSavedListings(prev => 
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
@@ -108,19 +119,18 @@ const Listings = () => {
       {/* Header with Search */}
       <div className="bg-card border-b border-border">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="relative flex-1 max-w-2xl">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search by make, model, or keyword..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+            <div className="flex items-center gap-4 mb-4">
+              <div className="relative flex-1 max-w-2xl">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search by make, model, or keyword..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
-            <Button>Search</Button>
-          </div>
           
           {/* Breadcrumb */}
           <Breadcrumb>
@@ -149,7 +159,7 @@ const Listings = () => {
             {/* View Controls & Results Count */}
             <div className="flex items-center justify-between mb-6">
               <p className="text-muted-foreground">
-                Showing <span className="font-semibold text-foreground">{mockListings.length}</span> motorcycles
+                Showing <span className="font-semibold text-foreground">{filteredListings.length}</span> motorcycles
               </p>
               
               <div className="flex items-center gap-2">
@@ -188,15 +198,21 @@ const Listings = () => {
                   ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                   : "space-y-4"
               }>
-                {mockListings.map((listing) => (
-                  <ListingCard
-                    key={listing.id}
-                    listing={listing}
-                    viewMode={viewMode}
-                    isSaved={savedListings.includes(listing.id)}
-                    onToggleSave={toggleSave}
-                  />
-                ))}
+                {filteredListings.length > 0 ? (
+                  filteredListings.map((listing) => (
+                    <ListingCard
+                      key={listing.id}
+                      listing={listing}
+                      viewMode={viewMode}
+                      isSaved={savedListings.includes(listing.id)}
+                      onToggleSave={toggleSave}
+                    />
+                  ))
+                ) : (
+                  <div className="col-span-full text-center py-12">
+                    <p className="text-muted-foreground">No motorcycles found matching your search.</p>
+                  </div>
+                )}
               </div>
             )}
           </main>

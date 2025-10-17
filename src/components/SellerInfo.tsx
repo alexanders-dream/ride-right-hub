@@ -10,9 +10,10 @@ interface SellerInfoProps {
   location: string;
   memberSince: string;
   totalListings: number;
+  onContactSeller?: () => void;
 }
 
-const SellerInfo = ({ name, rating, reviewCount, location, memberSince, totalListings }: SellerInfoProps) => {
+const SellerInfo = ({ name, rating, reviewCount, location, memberSince, totalListings, onContactSeller }: SellerInfoProps) => {
   return (
     <Card className="p-6">
       <h3 className="text-lg font-semibold mb-4">Seller Information</h3>
@@ -49,7 +50,7 @@ const SellerInfo = ({ name, rating, reviewCount, location, memberSince, totalLis
       </div>
 
       <div className="space-y-2">
-        <Button className="w-full">Contact Seller</Button>
+        <Button className="w-full" onClick={onContactSeller}>Contact Seller</Button>
         <Button variant="outline" className="w-full">View Profile</Button>
       </div>
     </Card>

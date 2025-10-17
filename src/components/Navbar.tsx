@@ -1,13 +1,16 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
-import { Menu, Bike, User } from "lucide-react";
+import { Menu, Bike, User, ShoppingCart } from "lucide-react";
+import { Badge } from "./ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/contexts/CartContext";
 
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
+  const { cartCount } = useCart();
   
   const navLinks = [
     { path: "/", label: "Home" },
@@ -43,6 +46,19 @@ const Navbar = () => {
           </div>
 
           <div className="hidden md:flex items-center gap-4">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="relative"
+              onClick={() => navigate('/cart')}
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {cartCount > 0 && (
+                <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
+                  {cartCount}
+                </Badge>
+              )}
+            </Button>
             {isAuthenticated ? (
               <>
                 <span className="text-sm text-muted-foreground">Hi, {user?.name}</span>
@@ -83,6 +99,13 @@ const Navbar = () => {
               </nav>
               
               <div className="flex flex-col gap-2 mt-4">
+                <Button variant="outline" className="w-full relative" onClick={() => navigate('/cart')}>
+                  <ShoppingCart className="w-4 h-4 mr-2" />
+                  Cart
+                  {cartCount > 0 && (
+                    <Badge className="ml-2">{cartCount}</Badge>
+                  )}
+                </Button>
                 {isAuthenticated ? (
                   <>
                     <Button variant="outline" className="w-full" onClick={() => navigate('/dashboard')}>

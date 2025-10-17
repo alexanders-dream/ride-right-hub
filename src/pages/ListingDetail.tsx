@@ -1,13 +1,19 @@
+import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { Heart, Share2, Flag, MapPin, Gauge, Calendar, Palette, Cog } from "lucide-react";
+import { Heart, Share2, Flag, MapPin, Gauge, Calendar, Palette, Cog, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import ImageGallery from "@/components/ImageGallery";
 import SellerInfo from "@/components/SellerInfo";
 import FinancingCalculator from "@/components/FinancingCalculator";
+import ContactSellerDialog from "@/components/ContactSellerDialog";
+import ReportListingDialog from "@/components/ReportListingDialog";
+import ShareDialog from "@/components/ShareDialog";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { useCart } from "@/contexts/CartContext";
+import { cn } from "@/lib/utils";
 
 // Mock data - in real app this would come from API
 const mockListing = {
@@ -43,6 +49,29 @@ const mockListing = {
 
 const ListingDetail = () => {
   const { id } = useParams();
+  const { addToCart, cartItems } = useCart();
+  const [saved, setSaved] = useState(false);
+  const [contactDialogOpen, setContactDialogOpen] = useState(false);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+
+  const isInCart = cartItems.some(item => item.id === mockListing.id);
+
+  const handleAddToCart = () => {
+    addToCart({
+      id: mockListing.id,
+      image: mockListing.images[0],
+      year: mockListing.year,
+      make: mockListing.make,
+      model: mockListing.model,
+      price: mockListing.price,
+      mileage: mockListing.mileage,
+      location: mockListing.location,
+      sellerType: "dealer",
+      engineSize: mockListing.engineSize,
+      color: mockListing.color,
+    });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -70,18 +99,39 @@ const ListingDetail = () => {
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-3xl font-bold text-primary">${mockListing.price.toLocaleString()}</div>
-                <div className="flex gap-2 mt-2">
-                  <Button variant="ghost" size="icon">
-                    <Heart className="h-5 w-5" />
+                <div className="text-3xl font-bold text-primary mb-3">${mockListing.price.toLocaleString()}</div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => setSaved(!saved)}
+                  >
+                    <Heart className={cn("h-5 w-5", saved && "fill-current text-primary")} />
                   </Button>
-                  <Button variant="ghost" size="icon">
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => setShareDialogOpen(true)}
+                  >
                     <Share2 className="h-5 w-5" />
                   </Button>
-                  <Button variant="ghost" size="icon">
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => setReportDialogOpen(true)}
+                  >
                     <Flag className="h-5 w-5" />
                   </Button>
                 </div>
+                <Button 
+                  className="w-full mt-4 gap-2" 
+                  size="lg"
+                  onClick={handleAddToCart}
+                  disabled={isInCart}
+                >
+                  <ShoppingCart className="h-5 w-5" />
+                  {isInCart ? 'In Cart' : 'Add to Cart'}
+                </Button>
               </div>
             </div>
 
@@ -171,11 +221,33 @@ const ListingDetail = () => {
 
           {/* Sidebar - 1 column */}
           <div className="space-y-6">
-            <SellerInfo {...mockListing.seller} />
+            <SellerInfo 
+              {...mockListing.seller} 
+              onContactSeller={() => setContactDialogOpen(true)}
+            />
             <FinancingCalculator price={mockListing.price} />
           </div>
         </div>
       </div>
+
+      {/* Dialogs */}
+      <ContactSellerDialog
+        open={contactDialogOpen}
+        onOpenChange={setContactDialogOpen}
+        sellerName={mockListing.seller.name}
+        listingTitle={`${mockListing.year} ${mockListing.make} ${mockListing.model}`}
+      />
+      <ReportListingDialog
+        open={reportDialogOpen}
+        onOpenChange={setReportDialogOpen}
+        listingId={mockListing.id}
+      />
+      <ShareDialog
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        title={`${mockListing.year} ${mockListing.make} ${mockListing.model}`}
+        url={window.location.href}
+      />
 
       <Footer />
     </div>

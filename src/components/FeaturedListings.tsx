@@ -83,8 +83,8 @@ const FeaturedListings = () => {
               </CardContent>
 
               <CardFooter className="p-6 pt-0">
-                <Button className="w-full" variant="outline">
-                  View Details
+                <Button className="w-full" variant="outline" asChild>
+                  <a href={`/listing/${listing.id}`}>View Details</a>
                 </Button>
               </CardFooter>
             </Card>
@@ -92,8 +92,8 @@ const FeaturedListings = () => {
         </div>
 
         <div className="text-center mt-12">
-          <Button size="lg" variant="outline" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground">
-            View All Listings
+          <Button size="lg" variant="outline" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground" asChild>
+            <a href="/listings">View All Listings</a>
           </Button>
         </div>
       </div>
