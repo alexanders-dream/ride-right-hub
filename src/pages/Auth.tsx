@@ -15,7 +15,7 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<'buyer' | 'seller' | 'both'>('buyer');
+  const [role, setRole] = useState<'buyer' | 'seller' | 'both' | 'admin'>('buyer');
   const { login, signup } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -130,6 +130,10 @@ const Auth = () => {
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="both" id="both" />
                         <Label htmlFor="both">Both buy and sell</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="admin" id="admin" />
+                        <Label htmlFor="admin">Admin (for testing)</Label>
                       </div>
                     </RadioGroup>
                   </div>

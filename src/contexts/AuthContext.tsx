@@ -4,13 +4,13 @@ interface User {
   id: string;
   email: string;
   name: string;
-  role: 'buyer' | 'seller' | 'both';
+  role: 'buyer' | 'seller' | 'both' | 'admin';
 }
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name: string, role: 'buyer' | 'seller' | 'both') => Promise<void>;
+  signup: (email: string, password: string, name: string, role: 'buyer' | 'seller' | 'both' | 'admin') => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('user', JSON.stringify(userWithoutPassword));
   };
 
-  const signup = async (email: string, password: string, name: string, role: 'buyer' | 'seller' | 'both') => {
+  const signup = async (email: string, password: string, name: string, role: 'buyer' | 'seller' | 'both' | 'admin') => {
     const users = JSON.parse(localStorage.getItem('users') || '[]');
     
     if (users.find((u: any) => u.email === email)) {
