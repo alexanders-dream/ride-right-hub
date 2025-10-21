@@ -1,220 +1,104 @@
-import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Calendar, User, ArrowLeft, Clock, Loader2, Share2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { blogService } from "../database";
-import { BlogPost as BlogPostType } from "../types/database";
+import { Calendar, User, ArrowLeft, Clock } from "lucide-react";
 
 const BlogPost = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [post, setPost] = useState<BlogPostType | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isSharing, setIsSharing] = useState(false);
 
-  useEffect(() => {
-    const loadBlogPost = async () => {
-      try {
-        setLoading(true);
-        
-        if (!id) {
-          throw new Error("Blog post ID is required");
-        }
-
-        const postId = parseInt(id);
-        const blogPost = blogService.getBlogPostById(postId);
-        
-        if (!blogPost) {
-          throw new Error("Blog post not found");
-        }
-
-        setPost(blogPost);
-      } catch (error) {
-        console.error('Failed to load blog post:', error);
-        toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : "Failed to load blog post",
-          variant: "destructive",
-        });
-        navigate('/blog');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadBlogPost();
-  }, [id, navigate, toast]);
-
-  const handleShare = async () => {
-    try {
-      setIsSharing(true);
+  // Mock blog post data
+  const post = {
+    id,
+    title: "Top 10 Motorcycles for Beginners in 2024",
+    category: "Buying Guide",
+    author: "Mike Rodriguez",
+    date: "March 15, 2024",
+    readTime: "5 min read",
+    image: "/placeholder.svg",
+    content: `
+      <p>Starting your motorcycle journey is an exciting adventure, but choosing the right bike can be overwhelming. This comprehensive guide will help you find the perfect beginner motorcycle that matches your needs, budget, and riding style.</p>
       
-      if (navigator.share && post) {
-        await navigator.share({
-          title: post.title,
-          text: post.excerpt,
-          url: window.location.href,
-        });
-      } else {
-        // Fallback: copy to clipboard
-        await navigator.clipboard.writeText(window.location.href);
-        toast({
-          title: "Link Copied!",
-          description: "Blog post URL has been copied to your clipboard.",
-        });
-      }
-    } catch (error) {
-      console.error('Failed to share:', error);
-      if (!navigator.share) {
-        toast({
-          title: "Share Failed",
-          description: "Unable to share this post. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } finally {
-      setIsSharing(false);
-    }
+      <h2>What Makes a Great Beginner Motorcycle?</h2>
+      <p>Before diving into specific models, let's understand what characteristics make a motorcycle ideal for new riders:</p>
+      <ul>
+        <li><strong>Manageable Power:</strong> 300-650cc engines provide enough power without being overwhelming</li>
+        <li><strong>Comfortable Ergonomics:</strong> Upright riding position reduces fatigue</li>
+        <li><strong>Low Seat Height:</strong> Ability to plant both feet firmly on the ground</li>
+        <li><strong>Light Weight:</strong> Easier to handle at low speeds and when stopped</li>
+        <li><strong>Reliability:</strong> Well-established models with good track records</li>
+      </ul>
+
+      <h2>Our Top 10 Picks</h2>
+      
+      <h3>1. Honda CB500F</h3>
+      <p>The CB500F is the quintessential beginner bike. Its 471cc parallel-twin engine delivers smooth, predictable power that's perfect for learning. The upright riding position and light clutch make it incredibly user-friendly.</p>
+      
+      <h3>2. Kawasaki Ninja 400</h3>
+      <p>Don't let the sportbike styling fool you - the Ninja 400 is remarkably forgiving. Its 399cc engine provides thrilling performance without overwhelming new riders, and the lightweight chassis inspires confidence.</p>
+      
+      <h3>3. Yamaha MT-03</h3>
+      <p>Yamaha's naked bike philosophy shines in the MT-03. With a 321cc engine and aggressive styling, it's perfect for riders who want something visually exciting that's still easy to manage.</p>
+
+      <h2>Making Your Decision</h2>
+      <p>Remember, the best beginner motorcycle is the one that fits you physically, matches your budget, and excites you every time you look at it. Visit dealers, sit on different models, and if possible, take MSF courses that provide bikes for you to try.</p>
+      
+      <p>Your first motorcycle is just the beginning of an incredible journey. Choose wisely, ride safely, and enjoy every mile!</p>
+    `
   };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container mx-auto px-4 py-12">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-              <p className="text-muted-foreground">Loading blog post...</p>
-            </div>
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
-  if (!post) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container mx-auto px-4 py-12">
-          <div className="text-center py-12">
-            <h1 className="text-2xl font-semibold mb-2">Blog Post Not Found</h1>
-            <p className="text-muted-foreground mb-4">The blog post you're looking for doesn't exist or has been removed.</p>
-            <Button onClick={() => navigate('/blog')}>
-              Back to Blog
-            </Button>
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
-      <article className="container mx-auto px-4 py-12 max-w-4xl">
-        {/* Back Button */}
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/blog')}
-          className="mb-6"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Blog
-        </Button>
+      <main className="container mx-auto px-4 py-12">
+        <div className="max-w-3xl mx-auto">
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate("/blog")}
+            className="mb-6"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Blog
+          </Button>
 
-        {/* Hero Section */}
-        <div className="mb-8">
-          {post.image && (
-            <div className="aspect-video overflow-hidden rounded-lg mb-8">
-              <img
-                src={post.image}
+          <article>
+            <div className="mb-6">
+              <Badge variant="secondary" className="mb-4">{post.category}</Badge>
+              <h1 className="text-4xl font-bold mb-4">{post.title}</h1>
+              
+              <div className="flex items-center gap-6 text-sm text-muted-foreground mb-6">
+                <span className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  {post.author}
+                </span>
+                <span className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  {post.date}
+                </span>
+                <span className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  {post.readTime}
+                </span>
+              </div>
+            </div>
+
+            <div className="aspect-video bg-muted rounded-lg overflow-hidden mb-8">
+              <img 
+                src={post.image} 
                 alt={post.title}
                 className="w-full h-full object-cover"
               />
             </div>
-          )}
-          
-          <div className="flex flex-wrap items-center gap-4 mb-4">
-            <Badge variant="secondary">
-              {post.category}
-            </Badge>
-            <div className="flex items-center text-sm text-muted-foreground">
-              <Clock className="h-4 w-4 mr-1" />
-              {post.readTime}
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleShare}
-              disabled={isSharing}
-              className="text-sm"
-            >
-              <Share2 className="h-4 w-4 mr-1" />
-              {isSharing ? "Sharing..." : "Share"}
-            </Button>
-          </div>
 
-          <h1 className="text-4xl font-bold mb-4">{post.title}</h1>
-          
-          <div className="flex items-center gap-6 text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              <span>{post.author}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              <span>{formatDate(post.published_at || post.created_at)}</span>
-            </div>
-          </div>
+            <div 
+              className="prose prose-slate max-w-none dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: post.content }}
+            />
+          </article>
         </div>
-
-        <Separator className="mb-8" />
-
-        {/* Content */}
-        <div 
-          className="prose prose-lg max-w-none"
-          dangerouslySetInnerHTML={{ __html: post.content }}
-        />
-
-        <Separator className="my-8" />
-
-        {/* Footer */}
-        <div className="text-center">
-          <h3 className="text-xl font-semibold mb-4">Enjoyed this article?</h3>
-          <p className="text-muted-foreground mb-6">
-            Share it with fellow motorcycle enthusiasts and help spread the knowledge!
-          </p>
-          <div className="flex justify-center gap-4">
-            <Button onClick={handleShare} disabled={isSharing}>
-              <Share2 className="h-4 w-4 mr-2" />
-              Share Article
-            </Button>
-            <Button variant="outline" onClick={() => navigate('/blog')}>
-              Read More Articles
-            </Button>
-          </div>
-        </div>
-      </article>
-
+      </main>
       <Footer />
     </div>
   );

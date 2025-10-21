@@ -1,111 +1,76 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User } from '../types/database';
-import { userService } from '../database';
+
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: 'buyer' | 'seller' | 'both' | 'admin';
+}
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name: string, role: 'buyer' | 'seller' | 'both' | 'admin') => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
-  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing token on mount
-    const storedToken = localStorage.getItem('authToken');
-    if (storedToken) {
-      try {
-        const decoded = userService.verifyToken(storedToken);
-        const userData = userService.getUserById(decoded.userId);
-        
-        if (userData) {
-          setUser(userData);
-          setToken(storedToken);
-        } else {
-          // Token is valid but user doesn't exist
-          localStorage.removeItem('authToken');
-        }
-      } catch (error) {
-        // Invalid token
-        localStorage.removeItem('authToken');
-      }
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
     }
-    setIsLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
-    // Authenticate user against database
-    const authenticatedUser = await userService.authenticateUser(email, password);
+    // Simulate API call
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    const foundUser = users.find((u: any) => u.email === email && u.password === password);
     
-    // Generate JWT token
-    const userToken = userService.generateToken(authenticatedUser);
-    
-    // Store token in localStorage (in production, use httpOnly cookies)
-    localStorage.setItem('authToken', userToken);
-    
-    // Update context state
-    setUser(authenticatedUser);
-    setToken(userToken);
+    if (!foundUser) {
+      throw new Error('Invalid credentials');
+    }
+
+    const { password: _, ...userWithoutPassword } = foundUser;
+    setUser(userWithoutPassword);
+    localStorage.setItem('user', JSON.stringify(userWithoutPassword));
   };
 
   const signup = async (email: string, password: string, name: string, role: 'buyer' | 'seller' | 'both' | 'admin') => {
-    // Create user in database
-    const newUser = await userService.createUser(email, password, name, role);
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
     
-    if (newUser) {
-      // Generate JWT token for immediate login
-      const userToken = userService.generateToken(newUser);
-      
-      // Store token
-      localStorage.setItem('authToken', userToken);
-      
-      // Update context state
-      setUser(newUser);
-      setToken(userToken);
-    } else {
-      throw new Error('Failed to create user');
+    if (users.find((u: any) => u.email === email)) {
+      throw new Error('User already exists');
     }
+
+    const newUser = {
+      id: Date.now().toString(),
+      email,
+      password,
+      name,
+      role,
+    };
+
+    users.push(newUser);
+    localStorage.setItem('users', JSON.stringify(users));
+
+    const { password: _, ...userWithoutPassword } = newUser;
+    setUser(userWithoutPassword);
+    localStorage.setItem('user', JSON.stringify(userWithoutPassword));
   };
 
   const logout = () => {
-    // Clear context state
     setUser(null);
-    setToken(null);
-    
-    // Clear stored token
-    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
   };
-
-  const value = {
-    user,
-    token,
-    login,
-    signup,
-    logout,
-    isAuthenticated: !!user && !!token,
-    isAdmin: user?.role === 'admin'
-  };
-
-  if (isLoading) {
-    // Return loading indicator while checking authentication
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, login, signup, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );
@@ -117,16 +82,4 @@ export const useAuth = () => {
     throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
-};
-
-// Additional hook for protected routes
-export const useRequireAuth = () => {
-  const { user, isAuthenticated } = useAuth();
-  
-  if (!isAuthenticated || !user) {
-    // Redirect or handle unauthorized access
-    throw new Error('Authentication required');
-  }
-  
-  return user;
 };

@@ -7,18 +7,15 @@ import { cn } from "@/lib/utils";
 
 interface Listing {
   id: number;
-  image?: string;
-  images?: string[];
+  image: string;
   year: number;
   make: string;
   model: string;
   price: number;
   mileage: number;
   location: string;
-  sellerType?: "dealer" | "private";
-  seller_type?: "dealer" | "private";
-  engineSize?: number;
-  engine_size?: number;
+  sellerType: "dealer" | "private";
+  engineSize: number;
   color: string;
 }
 
@@ -30,10 +27,6 @@ interface ListingCardProps {
 }
 
 const ListingCard = ({ listing, viewMode, isSaved, onToggleSave }: ListingCardProps) => {
-  const displayImage = listing.image || listing.images?.[0] || '/placeholder.svg';
-  const sellerType = listing.sellerType || listing.seller_type || 'private';
-  const engineSize = listing.engineSize || listing.engine_size || 0;
-  
   if (viewMode === "list") {
     return (
       <Link to={`/listing/${listing.id}`}>

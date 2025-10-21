@@ -1,29 +1,37 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Heart, Search, MessageSquare, Settings, BarChart3, Edit, Trash2, Loader2 } from 'lucide-react';
+import { Heart, Search, MessageSquare, Settings, BarChart3, Edit, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { listingService, favoriteService, savedSearchService, messageService } from '../database';
-import { Listing, Favorite, SavedSearch, User, Message } from '../types/database';
 
+interface Listing {
+  id: string;
+  title: string;
+  price: number;
+  image: string;
+  status: 'active' | 'pending' | 'sold';
+  views: number;
+  inquiries: number;
+}
 
+interface SavedSearch {
+  id: string;
+  name: string;
+  filters: string;
+}
 
 const Dashboard = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [favorites, setFavorites] = useState<Favorite[]>([]);
+  const [favorites, setFavorites] = useState<any[]>([]);
   const [listings, setListings] = useState<Listing[]>([]);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -31,129 +39,36 @@ const Dashboard = () => {
       return;
     }
 
-    if (!user) return;
-
-    const loadUserData = async () => {
-      try {
-        setLoading(true);
-        
-        // Load user's listings
-        const userListings = listingService.getListingsBySeller(user.id);
-        setListings(userListings);
-        
-        // Load user's favorites
-        const userFavorites = favoriteService.getUserFavorites(user.id);
-        setFavorites(userFavorites);
-        
-        // Load user's saved searches
-        const userSavedSearches = savedSearchService.getSavedSearches(user.id);
-        setSavedSearches(userSavedSearches);
-        
-        // Load user's messages
-        const userMessages = messageService.getUserMessages(user.id);
-        setMessages(userMessages);
-        
-      } catch (error) {
-        console.error('Failed to load user data:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load dashboard data",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadUserData();
-  }, [isAuthenticated, navigate, user, toast]);
-
-  const removeFavorite = async (id: number, listingId: number) => {
-    if (!user) return;
+    // Load user data from localStorage
+    const storedFavorites = JSON.parse(localStorage.getItem(`favorites_${user?.id}`) || '[]');
+    const storedListings = JSON.parse(localStorage.getItem(`listings_${user?.id}`) || '[]');
+    const storedSearches = JSON.parse(localStorage.getItem(`searches_${user?.id}`) || '[]');
     
-    try {
-      const success = favoriteService.removeFromFavorites(user.id, listingId);
-      if (success) {
-        const updated = favorites.filter(f => f.id !== id);
-        setFavorites(updated);
-        toast({
-          title: "Removed from Favorites",
-          description: "Listing has been removed from your favorites",
-        });
-      }
-    } catch (error) {
-      console.error('Failed to remove favorite:', error);
-      toast({
-        title: "Error",
-        description: "Failed to remove from favorites",
-        variant: "destructive",
-      });
-    }
+    setFavorites(storedFavorites);
+    setListings(storedListings);
+    setSavedSearches(storedSearches);
+  }, [isAuthenticated, navigate, user]);
+
+  const removeFavorite = (id: string) => {
+    const updated = favorites.filter(f => f.id !== id);
+    setFavorites(updated);
+    localStorage.setItem(`favorites_${user?.id}`, JSON.stringify(updated));
   };
 
-  const deleteListing = async (id: number) => {
-    if (!user) return;
-    
-    try {
-      const success = listingService.deleteListing(id);
-      if (success) {
-        const updated = listings.filter(l => l.id !== id);
-        setListings(updated);
-        toast({
-          title: "Listing Deleted",
-          description: "Your listing has been deleted successfully",
-        });
-      }
-    } catch (error) {
-      console.error('Failed to delete listing:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete listing",
-        variant: "destructive",
-      });
-    }
+  const deleteListing = (id: string) => {
+    const updated = listings.filter(l => l.id !== id);
+    setListings(updated);
+    localStorage.setItem(`listings_${user?.id}`, JSON.stringify(updated));
   };
 
-  const deleteSearch = async (id: number) => {
-    try {
-      const success = savedSearchService.deleteSavedSearch(id);
-      if (success) {
-        const updated = savedSearches.filter(s => s.id !== id);
-        setSavedSearches(updated);
-        toast({
-          title: "Search Deleted",
-          description: "Saved search has been deleted",
-        });
-      }
-    } catch (error) {
-      console.error('Failed to delete saved search:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete saved search",
-        variant: "destructive",
-      });
-    }
+  const deleteSearch = (id: string) => {
+    const updated = savedSearches.filter(s => s.id !== id);
+    setSavedSearches(updated);
+    localStorage.setItem(`searches_${user?.id}`, JSON.stringify(updated));
   };
 
   const isSeller = user?.role === 'seller' || user?.role === 'both';
   const isBuyer = user?.role === 'buyer' || user?.role === 'both';
-  const isAdmin = user?.role === 'admin';
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-              <p className="text-muted-foreground">Loading dashboard...</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -196,7 +111,7 @@ const Dashboard = () => {
                     <Card key={listing.id}>
                       <CardContent className="p-6">
                         <div className="flex gap-4">
-                          <img src={listing.images[0] || '/placeholder.svg'} alt={listing.title} className="w-32 h-32 object-cover rounded" />
+                          <img src={listing.image} alt={listing.title} className="w-32 h-32 object-cover rounded" />
                           <div className="flex-1">
                             <div className="flex justify-between items-start mb-2">
                               <div>
@@ -212,9 +127,9 @@ const Dashboard = () => {
                                 <BarChart3 className="w-4 h-4" />
                                 {listing.views} views
                               </span>
-                               <span className="flex items-center gap-1">
+                              <span className="flex items-center gap-1">
                                 <MessageSquare className="w-4 h-4" />
-                                0 inquiries
+                                {listing.inquiries} inquiries
                               </span>
                             </div>
                             <div className="flex gap-2">
@@ -253,17 +168,17 @@ const Dashboard = () => {
                 </Card>
               ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {favorites.map((bike: any) => (
+                  {favorites.map((bike) => (
                     <Card key={bike.id} className="overflow-hidden">
-                      <img src={bike.images?.[0] || bike.image || '/placeholder.svg'} alt={bike.title} className="w-full h-48 object-cover" />
+                      <img src={bike.image} alt={bike.title} className="w-full h-48 object-cover" />
                       <CardContent className="p-4">
                         <h3 className="font-semibold mb-2">{bike.title}</h3>
-                        <p className="text-xl font-bold text-primary mb-4">${(bike.price || 0).toLocaleString()}</p>
+                        <p className="text-xl font-bold text-primary mb-4">${bike.price.toLocaleString()}</p>
                         <div className="flex gap-2">
-                          <Button size="sm" className="flex-1" onClick={() => navigate(`/listing/${bike.listing_id || bike.id}`)}>
+                          <Button size="sm" className="flex-1" onClick={() => navigate(`/listing/${bike.id}`)}>
                             View Details
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => removeFavorite(bike.id, bike.listing_id || bike.id)}>
+                          <Button size="sm" variant="outline" onClick={() => removeFavorite(bike.id)}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
@@ -293,7 +208,7 @@ const Dashboard = () => {
                       <CardContent className="p-6 flex justify-between items-center">
                         <div>
                           <h3 className="font-semibold mb-1">{search.name}</h3>
-                          <p className="text-sm text-muted-foreground">{JSON.stringify(search.filters)}</p>
+                          <p className="text-sm text-muted-foreground">{search.filters}</p>
                         </div>
                         <div className="flex gap-2">
                           <Button size="sm" onClick={() => navigate(`/listings?${search.filters}`)}>
