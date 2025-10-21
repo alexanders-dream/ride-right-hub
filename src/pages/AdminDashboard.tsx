@@ -15,25 +15,26 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Trash2, Edit, Plus, Users, Bike, FileText, BarChart, Save, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Listing, User, BlogPost } from '../types/database';
 
 const AdminDashboard = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [listings, setListings] = useState<Array<Record<string, unknown>>>([]);
-  const [users, setUsers] = useState<Array<Record<string, unknown>>>([]);
-  const [blogPosts, setBlogPosts] = useState<Array<Record<string, unknown>>>([]);
-  const [editingBlogPost, setEditingBlogPost] = useState<Record<string, unknown> | null>(null);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  const [editingBlogPost, setEditingBlogPost] = useState<BlogPost | null>(null);
   const [showBlogForm, setShowBlogForm] = useState(false);
   const [blogFormData, setBlogFormData] = useState({
     title: '',
     content: '',
     excerpt: '',
     author: '',
-    category: 'Buying Guide' as const,
+    category: 'Buying Guide' as BlogPost['category'],
     image: '',
     readTime: '',
-    status: 'draft' as const
+    status: 'draft' as BlogPost['status']
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -62,7 +63,7 @@ const AdminDashboard = () => {
 
     // Load data from localStorage database
     loadDatabaseData();
-  }, [isAuthenticated, user, navigate, toast, loadDatabaseData]);
+  }, [isAuthenticated, user, navigate, toast]);
 
   const loadDatabaseData = useCallback(() => {
     try {
@@ -133,7 +134,8 @@ const AdminDashboard = () => {
         author: blogFormData.author,
         category: blogFormData.category,
         image: blogFormData.image,
-        readTime: blogFormData.readTime
+        readTime: blogFormData.readTime,
+        status: blogFormData.status
       }, blogFormData.status);
       
       if (newPost) {
@@ -197,7 +199,7 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleEditBlogPost = (post: Record<string, unknown>) => {
+  const handleEditBlogPost = (post: BlogPost) => {
     setEditingBlogPost(post);
     setBlogFormData({
       title: post.title,
@@ -313,15 +315,15 @@ const AdminDashboard = () => {
                   <TableBody>
                     {listings.map((listing) => (
                       <TableRow key={listing.id}>
-                        <TableCell className="font-medium">{listing.title}</TableCell>
-                        <TableCell>{listing.seller}</TableCell>
+                       <TableCell className="font-medium">{listing.title}</TableCell>
+                        <TableCell>ID: {listing.seller_id}</TableCell>
                         <TableCell>${listing.price.toLocaleString()}</TableCell>
                         <TableCell>
                           <Badge variant={listing.status === "active" ? "default" : "secondary"}>
                             {listing.status}
                           </Badge>
                         </TableCell>
-                        <TableCell>{listing.views}</TableCell>
+                        <TableCell>{listing.views || 0}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
                             <Button variant="ghost" size="sm">
@@ -455,7 +457,7 @@ const AdminDashboard = () => {
                             {post.status}
                           </Badge>
                         </TableCell>
-                        <TableCell>{post.date}</TableCell>
+                        <TableCell>{new Date(post.published_at || post.created_at).toLocaleDateString()}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
                             <Button variant="ghost" size="sm">

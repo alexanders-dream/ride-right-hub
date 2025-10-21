@@ -295,9 +295,9 @@ export const listingService = {
         listingData.status || 'active', listingData.seller_id, listingData.seller_type
       );
 
-      const listing = db.prepare('SELECT * FROM listings WHERE ROWID = ?').get(result.insertId) as Listing || null;
+      const listing = db.prepare('SELECT * FROM listings WHERE ROWID = ?').get(result.insertId) as any || null;
       if (listing && listing.images) {
-        listing.images = JSON.parse(listing.images);
+        listing.images = typeof listing.images === 'string' ? JSON.parse(listing.images) : listing.images;
       }
       
       saveDatabase();
@@ -311,10 +311,10 @@ export const listingService = {
   getAllListings(): Listing[] {
     try {
       if (!db) return [];
-      const listings = db.prepare('SELECT * FROM listings ORDER BY created_at DESC').all() as Listing[];
+      const listings = db.prepare('SELECT * FROM listings ORDER BY created_at DESC').all() as any[];
       return listings.map(listing => ({
         ...listing,
-        images: listing.images ? JSON.parse(listing.images) : []
+        images: typeof listing.images === 'string' ? JSON.parse(listing.images) : listing.images
       }));
     } catch (error) {
       console.error('Error fetching listings:', error);
@@ -325,9 +325,9 @@ export const listingService = {
   getListingById(id: number): Listing | null {
     try {
       if (!db) return null;
-      const listing = db.prepare('SELECT * FROM listings WHERE id = ?').get(id) as Listing || null;
+      const listing = db.prepare('SELECT * FROM listings WHERE id = ?').get(id) as any || null;
       if (listing && listing.images) {
-        listing.images = JSON.parse(listing.images);
+        listing.images = typeof listing.images === 'string' ? JSON.parse(listing.images) : listing.images;
       }
       return listing;
     } catch (error) {
@@ -339,10 +339,10 @@ export const listingService = {
   getListingsBySeller(sellerId: number): Listing[] {
     try {
       if (!db) return [];
-      const listings = db.prepare('SELECT * FROM listings WHERE seller_id = ? ORDER BY created_at DESC').all(sellerId) as Listing[];
+      const listings = db.prepare('SELECT * FROM listings WHERE seller_id = ? ORDER BY created_at DESC').all(sellerId) as any[];
       return listings.map(listing => ({
         ...listing,
-        images: listing.images ? JSON.parse(listing.images) : []
+        images: typeof listing.images === 'string' ? JSON.parse(listing.images) : listing.images
       }));
     } catch (error) {
       console.error('Error fetching seller listings:', error);
@@ -383,15 +383,29 @@ export const cartService = {
     try {
       if (!db) return [];
       const items = db.prepare(`
-        SELECT ci.*, l.title, l.make, l.model, l.year, l.price, l.images
+        SELECT ci.id, ci.user_id, ci.listing_id, ci.added_at,
+               l.id as listing_id, l.title, l.make, l.model, l.year, l.price, l.mileage, l.location, l.images
         FROM cart_items ci 
         JOIN listings l ON ci.listing_id = l.id 
         WHERE ci.user_id = ?
       `).all(userId) as any[];
       
       return items.map(item => ({
-        ...item,
-        images: item.images ? JSON.parse(item.images) : []
+        id: item.id,
+        user_id: item.user_id,
+        listing_id: item.listing_id,
+        added_at: item.added_at,
+        listing: {
+          id: item.listing_id,
+          title: item.title,
+          make: item.make,
+          model: item.model,
+          year: item.year,
+          price: item.price,
+          mileage: item.mileage,
+          location: item.location,
+          images: typeof item.images === 'string' ? JSON.parse(item.images) : item.images
+        }
       }));
     } catch (error) {
       console.error('Error fetching cart items:', error);
@@ -485,12 +499,16 @@ export const favoriteService = {
       
       return items.map(item => ({
         ...item,
-        images: item.images ? JSON.parse(item.images) : []
+        images: typeof item.images === 'string' ? JSON.parse(item.images) : item.images
       }));
     } catch (error) {
       console.error('Error fetching favorite items:', error);
       return [];
     }
+  },
+
+  getUserFavorites(userId: number): any[] {
+    return this.getFavorites(userId);
   },
 
   isFavorite(userId: number, listingId: number): boolean {
@@ -583,6 +601,10 @@ export const messageService = {
     }
   },
 
+  getUserMessages(userId: number): Message[] {
+    return this.getMessages(userId);
+  },
+
   markAsRead(messageId: number): boolean {
     try {
       if (!db) return false;
@@ -612,14 +634,16 @@ export const messageService = {
 
 // Blog management functions
 export const blogService = {
-  createBlogPost(postData: Omit<BlogPost, 'id' | 'created_at' | 'updated_at' | 'published_at'>): BlogPost | null {
+  createBlogPost(postData: Omit<BlogPost, 'id' | 'created_at' | 'updated_at' | 'published_at'>, status: 'draft' | 'published' = 'draft'): BlogPost | null {
     try {
       if (!db) throw new Error('Database not initialized');
       
       const stmt = db.prepare(`
-        INSERT INTO blog_posts (title, content, excerpt, author, category, image, readTime, status) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO blog_posts (title, content, excerpt, author, category, image, readTime, status, published_at) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
+      
+      const publishedAt = status === 'published' ? new Date().toISOString() : null;
       
       stmt.run(
         postData.title,
@@ -629,10 +653,11 @@ export const blogService = {
         postData.category,
         postData.image,
         postData.readTime,
-        postData.status
+        status,
+        publishedAt
       );
 
-      const post = db.prepare('SELECT * FROM blog_posts WHERE ROWID = ?').get(stmt.lastID) as BlogPost || null;
+      const post = db.prepare('SELECT * FROM blog_posts WHERE ROWID = last_insert_rowid()').get() as BlogPost || null;
       saveDatabase();
       return post;
     } catch (error) {
@@ -694,6 +719,26 @@ export const blogService = {
     } catch (error) {
       console.error('Error fetching blog post:', error);
       return null;
+    }
+  },
+
+  getPublishedBlogPosts(): BlogPost[] {
+    try {
+      if (!db) return [];
+      return db.prepare('SELECT * FROM blog_posts WHERE status = ? ORDER BY published_at DESC, created_at DESC').all('published') as BlogPost[];
+    } catch (error) {
+      console.error('Error fetching published blog posts:', error);
+      return [];
+    }
+  },
+
+  getBlogPostsByCategory(category: string): BlogPost[] {
+    try {
+      if (!db) return [];
+      return db.prepare('SELECT * FROM blog_posts WHERE category = ? AND status = ? ORDER BY published_at DESC, created_at DESC').all(category, 'published') as BlogPost[];
+    } catch (error) {
+      console.error('Error fetching blog posts by category:', error);
+      return [];
     }
   }
 };

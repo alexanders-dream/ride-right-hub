@@ -11,7 +11,7 @@ import { Heart, Search, MessageSquare, Settings, BarChart3, Edit, Trash2, Loader
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { listingService, favoriteService, savedSearchService, messageService } from '../database';
-import { Listing, Favorite, SavedSearch, User } from '../types/database';
+import { Listing, Favorite, SavedSearch, User, Message } from '../types/database';
 
 
 
@@ -22,7 +22,7 @@ const Dashboard = () => {
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [listings, setListings] = useState<Listing[]>([]);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
-  const [messages, setMessages] = useState<Array<Record<string, unknown>>>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -212,9 +212,9 @@ const Dashboard = () => {
                                 <BarChart3 className="w-4 h-4" />
                                 {listing.views} views
                               </span>
-                              <span className="flex items-center gap-1">
+                               <span className="flex items-center gap-1">
                                 <MessageSquare className="w-4 h-4" />
-                                {listing.inquiries} inquiries
+                                0 inquiries
                               </span>
                             </div>
                             <div className="flex gap-2">
@@ -253,17 +253,17 @@ const Dashboard = () => {
                 </Card>
               ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {favorites.map((bike) => (
+                  {favorites.map((bike: any) => (
                     <Card key={bike.id} className="overflow-hidden">
-                      <img src={bike.image} alt={bike.title} className="w-full h-48 object-cover" />
+                      <img src={bike.images?.[0] || bike.image || '/placeholder.svg'} alt={bike.title} className="w-full h-48 object-cover" />
                       <CardContent className="p-4">
                         <h3 className="font-semibold mb-2">{bike.title}</h3>
-                        <p className="text-xl font-bold text-primary mb-4">${bike.price.toLocaleString()}</p>
+                        <p className="text-xl font-bold text-primary mb-4">${(bike.price || 0).toLocaleString()}</p>
                         <div className="flex gap-2">
-                          <Button size="sm" className="flex-1" onClick={() => navigate(`/listing/${bike.id}`)}>
+                          <Button size="sm" className="flex-1" onClick={() => navigate(`/listing/${bike.listing_id || bike.id}`)}>
                             View Details
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => removeFavorite(bike.id)}>
+                          <Button size="sm" variant="outline" onClick={() => removeFavorite(bike.id, bike.listing_id || bike.id)}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>

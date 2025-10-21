@@ -64,8 +64,11 @@ const Cart = () => {
     }
   };
 
-  const currentItems = isAuthenticated && user ? dbCartItems : cartItems;
-  const currentTotal = currentItems.reduce((sum, item) => sum + item.price, 0);
+  const currentItems: any[] = isAuthenticated && user ? dbCartItems : cartItems;
+  const currentTotal = currentItems.reduce((sum: number, item: any) => {
+    const price = item.listing?.price || item.price || 0;
+    return sum + Number(price);
+  }, 0);
 
   if (loading) {
     return (
@@ -109,25 +112,25 @@ const Cart = () => {
                   <CardContent className="p-6">
                     <div className="flex gap-6">
                       <img
-                        src={item.images?.[0] || item.image || "/placeholder.svg"}
-                        alt={`${item.year} ${item.make} ${item.model}`}
+                        src={item.listing?.images?.[0] || item.images?.[0] || item.image || "/placeholder.svg"}
+                        alt={`${item.listing?.year || item.year} ${item.listing?.make || item.make} ${item.listing?.model || item.model}`}
                         className="w-32 h-32 object-cover rounded-lg"
                       />
                       <div className="flex-1">
                         <h3 className="text-xl font-bold mb-2">
-                          {item.year} {item.make} {item.model}
+                          {item.listing?.year || item.year} {item.listing?.make || item.make} {item.listing?.model || item.model}
                         </h3>
                         <p className="text-sm text-muted-foreground mb-4">
-                          {item.mileage?.toLocaleString() || 'N/A'} mi • {item.engineSize || item.images ? 'Available' : 'N/A'}cc • {item.color || 'N/A'}
+                          {(item.listing?.mileage || item.mileage || 0).toLocaleString()} mi • {item.listing?.location || item.location || 'N/A'}
                         </p>
                         <p className="text-2xl font-bold text-primary">
-                          ${item.price.toLocaleString()}
+                          ${(item.listing?.price || item.price || 0).toLocaleString()}
                         </p>
                       </div>
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleRemoveItem(item.id, item.listing_id || item.id)}
+                        onClick={() => handleRemoveItem(item.id, item.listing_id || item.listing?.id || item.id)}
                       >
                         <Trash2 className="h-5 w-5" />
                       </Button>

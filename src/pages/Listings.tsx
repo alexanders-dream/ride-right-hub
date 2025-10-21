@@ -17,9 +17,33 @@ const Listings = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [savedListings, setSavedListings] = useState<number[]>([]);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const loadListings = async () => {
+      try {
+        setLoading(true);
+        const allListings = listingService.getAllListings();
+        setListings(allListings);
+      } catch (error) {
+        console.error('Failed to load listings:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load listings",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadListings();
+  }, [toast]);
 
   // Filter listings based on search query
-  const filteredListings = mockListings.filter(listing => {
+  const filteredListings = listings.filter(listing => {
     const searchLower = searchQuery.toLowerCase();
     return (
       listing.make.toLowerCase().includes(searchLower) ||

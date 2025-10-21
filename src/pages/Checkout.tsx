@@ -90,8 +90,11 @@ const Checkout = () => {
     }
   };
 
-  const currentItems = isAuthenticated && user ? dbCartItems : cartItems;
-  const currentTotal = currentItems.reduce((sum, item) => sum + item.price, 0);
+  const currentItems: any[] = isAuthenticated && user ? dbCartItems : cartItems;
+  const currentTotal = currentItems.reduce((sum: number, item: any) => {
+    const price = item.listing?.price || item.price || 0;
+    return sum + Number(price);
+  }, 0);
 
   if (loading) {
     return (
@@ -258,19 +261,19 @@ const Checkout = () => {
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {currentItems.map((item) => (
+                {currentItems.map((item: any) => (
                   <div key={item.id} className="flex gap-4">
                     <img
-                      src={item.images?.[0] || item.image || "/placeholder.svg"}
-                      alt={`${item.year} ${item.make} ${item.model}`}
+                      src={item.listing?.images?.[0] || item.images?.[0] || item.image || "/placeholder.svg"}
+                      alt={`${item.listing?.year || item.year} ${item.listing?.make || item.make} ${item.listing?.model || item.model}`}
                       className="w-20 h-20 object-cover rounded"
                     />
                     <div className="flex-1">
                       <p className="font-semibold text-sm">
-                        {item.year} {item.make} {item.model}
+                        {item.listing?.year || item.year} {item.listing?.make || item.make} {item.listing?.model || item.model}
                       </p>
                       <p className="text-lg font-bold text-primary">
-                        ${item.price.toLocaleString()}
+                        ${(item.listing?.price || item.price || 0).toLocaleString()}
                       </p>
                     </div>
                   </div>

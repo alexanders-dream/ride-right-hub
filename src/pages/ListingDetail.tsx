@@ -56,7 +56,7 @@ const ListingDetail = () => {
         
         // Check if saved (for authenticated users)
         if (user) {
-          const saved = favoriteService.isFavorited(user.id, listingId);
+          const saved = favoriteService.isFavorite(user.id, listingId);
           setIsSaved(saved);
         }
       } catch (error) {
@@ -96,6 +96,11 @@ const ListingDetail = () => {
           model: listing.model,
           year: listing.year,
           price: listing.price,
+          mileage: listing.mileage,
+          location: listing.location,
+          sellerType: listing.seller_type,
+          engineSize: listing.engine_size,
+          color: listing.color,
           image: listing.images[0] || "/placeholder.svg"
         });
         
@@ -327,7 +332,14 @@ const ListingDetail = () => {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Seller Info */}
-            <SellerInfo listingId={listing.id} />
+            <SellerInfo 
+              name="Private Seller"
+              rating={5}
+              reviewCount={0}
+              location={listing.location}
+              memberSince="2024"
+              totalListings={1}
+            />
             
             {/* Financing Calculator */}
             <div className="bg-card rounded-lg p-6 border">

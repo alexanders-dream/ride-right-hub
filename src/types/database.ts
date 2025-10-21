@@ -42,6 +42,8 @@ export interface CartItem {
     model: string;
     year: number;
     price: number;
+    mileage: number;
+    location: string;
     images: string[];
   };
   added_at: string;

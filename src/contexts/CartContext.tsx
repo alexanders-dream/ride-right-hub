@@ -27,6 +27,8 @@ interface CartContextType {
       model: string;
       year: number;
       price: number;
+      mileage: number;
+      location: string;
       images: string[];
     };
     added_at: string;
@@ -51,6 +53,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       model: string;
       year: number;
       price: number;
+      mileage: number;
+      location: string;
       images: string[];
     };
     added_at: string;
@@ -224,8 +228,8 @@ export const useCartStructured = () => {
     make: item.listing.make,
     model: item.listing.model,
     price: item.listing.price,
-    mileage: item.listing.mileage,
-    location: item.listing.location,
+    mileage: item.listing.mileage || 0,
+    location: item.listing.location || '',
     sellerType: 'dealer' as const, // Would need to get from full listing data
     engineSize: 0, // Would need to get from full listing data
     color: '' // Would need to get from full listing data
