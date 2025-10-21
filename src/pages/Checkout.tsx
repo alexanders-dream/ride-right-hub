@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,8 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { CreditCard, Lock } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { CreditCard, Lock, Loader2 } from 'lucide-react';
+import { cartService } from '../database';
 
 const Checkout = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
@@ -19,6 +20,36 @@ const Checkout = () => {
   const { toast } = useToast();
   const [processing, setProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'financing'>('card');
+  const [dbCartItems, setDbCartItems] = useState<Array<Record<string, unknown>>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadCartItems = async () => {
+      if (!isAuthenticated || !user) {
+        // For unauthenticated users, show the context cart
+        setDbCartItems(cartItems);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const items = cartService.getCartItems(user.id);
+        setDbCartItems(items);
+      } catch (error) {
+        console.error('Failed to load cart items:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load cart items",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCartItems();
+  }, [user, isAuthenticated, cartItems, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,26 +59,63 @@ const Checkout = () => {
       return;
     }
 
+    if (!user) return;
+
     setProcessing(true);
     
-    // Simulate payment processing
-    setTimeout(() => {
+    try {
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Clear cart from database
+      cartService.clearCart(user.id);
+      
+      // Clear cart from context
       clearCart();
+      
       setProcessing(false);
       toast({
         title: "Payment Successful!",
         description: "Your order has been confirmed. Check your email for details.",
       });
       navigate('/dashboard');
-    }, 2000);
+    } catch (error) {
+      console.error('Payment failed:', error);
+      setProcessing(false);
+      toast({
+        title: "Payment Failed",
+        description: "There was an error processing your payment. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  if (cartItems.length === 0) {
+  const currentItems = isAuthenticated && user ? dbCartItems : cartItems;
+  const currentTotal = currentItems.reduce((sum, item) => sum + item.price, 0);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-12">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p className="text-muted-foreground">Loading checkout...</p>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (currentItems.length === 0) {
     navigate('/cart');
     return null;
   }
 
-  const total = cartTotal + 99;
+  const total = currentTotal + 99;
 
   return (
     <div className="min-h-screen bg-background">
@@ -190,10 +258,10 @@ const Checkout = () => {
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {cartItems.map((item) => (
+                {currentItems.map((item) => (
                   <div key={item.id} className="flex gap-4">
                     <img
-                      src={item.image}
+                      src={item.images?.[0] || item.image || "/placeholder.svg"}
                       alt={`${item.year} ${item.make} ${item.model}`}
                       className="w-20 h-20 object-cover rounded"
                     />
@@ -213,7 +281,7 @@ const Checkout = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Subtotal</span>
-                    <span className="font-semibold">${cartTotal.toLocaleString()}</span>
+                    <span className="font-semibold">${currentTotal.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Processing Fee</span>

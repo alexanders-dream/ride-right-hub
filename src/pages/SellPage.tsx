@@ -13,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { listingService } from "../database";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
@@ -33,8 +34,9 @@ const formSchema = z.object({
 const SellPage = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -75,16 +77,78 @@ const SellPage = () => {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      const newImages = Array.from(files).map(file => URL.createObjectURL(file));
+      // Only proceed if we have files
+      const newImages = Array.from(files)
+        .filter(file => file.size <= 10 * 1024 * 1024) // 10MB limit
+        .slice(0, 10 - uploadedImages.length) // Limit to 10 total images
+        .map(file => URL.createObjectURL(file));
       setUploadedImages([...uploadedImages, ...newImages]);
     }
   };
 
-  const onSubmit = (data: z.infer<typeof formSchema>) => {
-    toast({
-      title: "Listing Created!",
-      description: "Your motorcycle has been listed successfully.",
-    });
+  const onSubmit = async (data: z.infer<typeof formSchema>) => {
+    if (!user) {
+      toast({
+        title: "Authentication Error",
+        description: "Please log in to create a listing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (uploadedImages.length === 0) {
+      toast({
+        title: "Images Required",
+        description: "Please upload at least one image of your motorcycle.",
+        variant: "destructive",
+      });
+      setCurrentStep(3);
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const listingData = {
+        title: `${data.year} ${data.make} ${data.model}`,
+        make: data.make,
+        model: data.model,
+        year: parseInt(data.year),
+        mileage: parseInt(data.mileage),
+        price: parseInt(data.price),
+        vin: data.vin,
+        location: data.location,
+        engine_size: parseInt(data.engineSize),
+        color: data.color,
+        transmission: data.transmission as 'Manual' | 'Automatic' | 'Semi-Automatic',
+        description: data.description,
+        images: uploadedImages,
+        seller_id: user.id,
+        seller_type: 'private' as const,
+        status: 'pending' as const,
+      };
+
+      const newListing = listingService.createListing(listingData);
+      
+      if (newListing) {
+        toast({
+          title: "Listing Created!",
+          description: "Your motorcycle has been listed successfully and is pending review.",
+        });
+        navigate('/dashboard');
+      } else {
+        throw new Error('Failed to create listing');
+      }
+    } catch (error) {
+      console.error('Failed to create listing:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create listing. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const nextStep = async () => {
@@ -509,12 +573,19 @@ const SellPage = () => {
                 </Button>
                 
                 {currentStep < 4 ? (
-                  <Button type="button" onClick={nextStep}>
+                  <Button type="button" onClick={nextStep} disabled={isSubmitting}>
                     Next Step
                   </Button>
                 ) : (
-                  <Button type="submit">
-                    Publish Listing
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <div className="animate-spin mr-2 h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                        Creating Listing...
+                      </>
+                    ) : (
+                      "Publish Listing"
+                    )}
                   </Button>
                 )}
               </div>

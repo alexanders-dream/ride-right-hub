@@ -1,136 +1,188 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Calendar, User, ArrowRight, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
-import { Calendar, User, ArrowRight } from "lucide-react";
-
-const mockBlogPosts = [
-  {
-    id: 1,
-    title: "Top 10 Motorcycles for Beginners in 2024",
-    excerpt: "Starting your riding journey? Discover the best motorcycles for new riders, balancing power, handling, and affordability.",
-    category: "Buying Guide",
-    author: "Mike Rodriguez",
-    date: "March 15, 2024",
-    image: "/placeholder.svg",
-    readTime: "5 min read"
-  },
-  {
-    id: 2,
-    title: "Essential Motorcycle Maintenance Tips",
-    excerpt: "Keep your bike running smoothly with these essential maintenance practices every rider should know.",
-    category: "Maintenance",
-    author: "Sarah Johnson",
-    date: "March 12, 2024",
-    image: "/placeholder.svg",
-    readTime: "8 min read"
-  },
-  {
-    id: 3,
-    title: "How to Negotiate the Best Price When Buying Used",
-    excerpt: "Master the art of negotiation and get the best deal on your next motorcycle purchase with these proven strategies.",
-    category: "Buying Guide",
-    author: "Tom Williams",
-    date: "March 10, 2024",
-    image: "/placeholder.svg",
-    readTime: "6 min read"
-  },
-  {
-    id: 4,
-    title: "Motorcycle Safety Gear: What You Really Need",
-    excerpt: "A comprehensive guide to essential safety gear that could save your life on the road.",
-    category: "Safety",
-    author: "Lisa Chen",
-    date: "March 8, 2024",
-    image: "/placeholder.svg",
-    readTime: "7 min read"
-  },
-  {
-    id: 5,
-    title: "Spring Riding Season: Prep Your Bike for the Road",
-    excerpt: "Winter's over! Follow this checklist to get your motorcycle ready for the riding season ahead.",
-    category: "Maintenance",
-    author: "Mike Rodriguez",
-    date: "March 5, 2024",
-    image: "/placeholder.svg",
-    readTime: "5 min read"
-  },
-  {
-    id: 6,
-    title: "Understanding Motorcycle Insurance: A Complete Guide",
-    excerpt: "Navigate the complex world of motorcycle insurance and find the coverage that's right for you.",
-    category: "Insurance",
-    author: "David Kim",
-    date: "March 1, 2024",
-    image: "/placeholder.svg",
-    readTime: "10 min read"
-  }
-];
+import { blogService } from "../database";
+import { BlogPost } from "../types/database";
 
 const Blog = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  const [filteredPosts, setFilteredPosts] = useState<BlogPost[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadBlogPosts = async () => {
+      try {
+        setLoading(true);
+        const posts = blogService.getPublishedBlogPosts();
+        setBlogPosts(posts);
+        setFilteredPosts(posts);
+      } catch (error) {
+        console.error('Failed to load blog posts:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load blog posts. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadBlogPosts();
+  }, [toast]);
+
+  useEffect(() => {
+    if (selectedCategory === "All") {
+      setFilteredPosts(blogPosts);
+    } else {
+      const categoryPosts = blogService.getBlogPostsByCategory(selectedCategory);
+      setFilteredPosts(categoryPosts);
+    }
+  }, [selectedCategory, blogPosts]);
+
+  const categories = ["All", "Buying Guide", "Selling Tips", "Maintenance", "News", "Market Analysis"];
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-12">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p className="text-muted-foreground">Loading blog posts...</p>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <main className="container mx-auto px-4 py-12">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold mb-4">Motorcycle Blog</h1>
-            <p className="text-muted-foreground text-lg">
-              Expert tips, guides, and insights for motorcycle enthusiasts
-            </p>
-          </div>
+      
+      <div className="container mx-auto px-4 py-12">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold mb-4">Motorcycle Blog</h1>
+          <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+            Tips, guides, and insights for motorcycle enthusiasts. From beginner advice to expert maintenance tips.
+          </p>
+        </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mockBlogPosts.map((post) => (
-              <Card key={post.id} className="hover:shadow-lg transition-shadow cursor-pointer group">
-                <div className="aspect-video bg-muted overflow-hidden">
-                  <img 
-                    src={post.image} 
+        {/* Category Filter */}
+        <div className="flex flex-wrap justify-center gap-3 mb-8">
+          {categories.map((category) => (
+            <Button
+              key={category}
+              variant={selectedCategory === category ? "default" : "outline"}
+              onClick={() => setSelectedCategory(category)}
+              className="text-sm"
+            >
+              {category}
+            </Button>
+          ))}
+        </div>
+
+        {/* Blog Posts Grid */}
+        {filteredPosts.length === 0 ? (
+          <div className="text-center py-16">
+            <h2 className="text-2xl font-semibold mb-4">No posts found</h2>
+            <p className="text-muted-foreground mb-6">
+              {selectedCategory === "All" 
+                ? "No blog posts are available yet." 
+                : `No posts found in the ${selectedCategory} category.`}
+            </p>
+            {selectedCategory !== "All" && (
+              <Button
+                variant="outline"
+                onClick={() => setSelectedCategory("All")}
+              >
+                View All Categories
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredPosts.map((post) => (
+              <Card key={post.id} className="overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer group"
+                    onClick={() => navigate(`/blog/${post.id}`)}>
+                <div className="aspect-video overflow-hidden bg-muted">
+                  <img
+                    src={post.image || "/placeholder.svg"}
                     alt={post.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 </div>
-                <CardHeader>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="secondary">{post.category}</Badge>
-                    <span className="text-xs text-muted-foreground">{post.readTime}</span>
+                
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <Badge variant="secondary" className="text-xs">
+                      {post.category}
+                    </Badge>
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Clock className="h-3 w-3 mr-1" />
+                      {post.readTime}
+                    </div>
                   </div>
-                  <CardTitle className="text-xl group-hover:text-primary transition-colors">
+                  <CardTitle className="text-xl line-clamp-2 group-hover:text-primary transition-colors">
                     {post.title}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-4">{post.excerpt}</p>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <div className="flex items-center gap-4">
-                      <span className="flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        {post.author}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {post.date}
-                      </span>
+                
+                <CardContent className="pt-0">
+                  <p className="text-muted-foreground line-clamp-3 mb-4">
+                    {post.excerpt}
+                  </p>
+                  
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      <span>{post.author}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      <span>{formatDate(post.published_at || post.created_at)}</span>
                     </div>
                   </div>
+                  
                   <Button 
                     variant="ghost" 
-                    className="w-full mt-4 group/btn"
-                    onClick={() => navigate(`/blog/${post.id}`)}
+                    className="mt-4 p-0 h-auto text-primary hover:text-primary/80"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/blog/${post.id}`);
+                    }}
                   >
                     Read More
-                    <ArrowRight className="ml-2 h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
+                    <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </CardContent>
               </Card>
             ))}
           </div>
-        </div>
-      </main>
+        )}
+      </div>
+
       <Footer />
     </div>
   );

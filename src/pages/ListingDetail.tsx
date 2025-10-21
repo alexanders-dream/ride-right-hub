@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { useParams } from "react-router-dom";
-import { Heart, Share2, Flag, MapPin, Gauge, Calendar, Palette, Cog, ShoppingCart } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Heart, Share2, Flag, MapPin, Gauge, Calendar, Palette, Cog, ShoppingCart, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
 import ImageGallery from "@/components/ImageGallery";
 import SellerInfo from "@/components/SellerInfo";
 import FinancingCalculator from "@/components/FinancingCalculator";
@@ -13,239 +14,348 @@ import ShareDialog from "@/components/ShareDialog";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { listingService, cartService, favoriteService } from "../database";
+import { Listing } from "../types/database";
 import { cn } from "@/lib/utils";
 
-// Mock data - in real app this would come from API
-const mockListing = {
-  id: 1,
-  year: 2022,
-  make: "Harley-Davidson",
-  model: "Street Glide",
-  price: 24999,
-  mileage: 3200,
-  location: "Los Angeles, CA",
-  engineSize: 1868,
-  color: "Black",
-  transmission: "6-Speed Manual",
-  vin: "1HD1KEM19NB123456",
-  description: "This beautiful 2022 Harley-Davidson Street Glide is in excellent condition with only 3,200 miles. Always garage-kept and regularly maintained. Features include upgraded exhaust, custom seat, and premium sound system. Non-smoking owner, no accidents. All service records available.",
-  images: [
-    "/placeholder.svg",
-    "/placeholder.svg",
-    "/placeholder.svg",
-    "/placeholder.svg",
-    "/placeholder.svg",
-    "/placeholder.svg",
-  ],
-  seller: {
-    name: "John Rider",
-    rating: 4.8,
-    reviewCount: 24,
-    location: "Los Angeles, CA",
-    memberSince: "2019",
-    totalListings: 3,
-  },
-};
-
 const ListingDetail = () => {
-  const { id } = useParams();
-  const { addToCart, cartItems } = useCart();
-  const [saved, setSaved] = useState(false);
-  const [contactDialogOpen, setContactDialogOpen] = useState(false);
-  const [reportDialogOpen, setReportDialogOpen] = useState(false);
-  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { addToCart } = useCart();
+  const { user } = useAuth();
+  
+  const [listing, setListing] = useState<Listing | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isSaved, setIsSaved] = useState(false);
+  const [showContact, setShowContact] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [showShare, setShowShare] = useState(false);
 
-  const isInCart = cartItems.some(item => item.id === mockListing.id);
+  useEffect(() => {
+    const loadListing = async () => {
+      try {
+        setLoading(true);
+        
+        if (!id) {
+          throw new Error("Listing ID is required");
+        }
 
-  const handleAddToCart = () => {
-    addToCart({
-      id: mockListing.id,
-      image: mockListing.images[0],
-      year: mockListing.year,
-      make: mockListing.make,
-      model: mockListing.model,
-      price: mockListing.price,
-      mileage: mockListing.mileage,
-      location: mockListing.location,
-      sellerType: "dealer",
-      engineSize: mockListing.engineSize,
-      color: mockListing.color,
-    });
+        const listingId = parseInt(id);
+        const fetchedListing = listingService.getListingById(listingId);
+        
+        if (!fetchedListing) {
+          throw new Error("Listing not found");
+        }
+
+        setListing(fetchedListing);
+        
+        // Update view count
+        listingService.updateListingViews(listingId);
+        
+        // Check if saved (for authenticated users)
+        if (user) {
+          const saved = favoriteService.isFavorited(user.id, listingId);
+          setIsSaved(saved);
+        }
+      } catch (error) {
+        console.error('Failed to load listing:', error);
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to load listing",
+          variant: "destructive",
+        });
+        navigate('/listings');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadListing();
+  }, [id, user, navigate, toast]);
+
+  const handleAddToCart = async () => {
+    if (!listing || !user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to add items to cart",
+        variant: "destructive",
+      });
+      navigate('/auth');
+      return;
+    }
+
+    try {
+      const success = cartService.addToCart(user.id, listing.id);
+      
+      if (success) {
+        addToCart({
+          id: listing.id,
+          make: listing.make,
+          model: listing.model,
+          year: listing.year,
+          price: listing.price,
+          image: listing.images[0] || "/placeholder.svg"
+        });
+        
+        toast({
+          title: "Added to Cart",
+          description: `${listing.make} ${listing.model} has been added to your cart`,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to add to cart:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add item to cart",
+        variant: "destructive",
+      });
+    }
   };
+
+  const handleSaveListing = async () => {
+    if (!listing || !user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to save listings",
+        variant: "destructive",
+      });
+      navigate('/auth');
+      return;
+    }
+
+    try {
+      if (isSaved) {
+        const success = favoriteService.removeFromFavorites(user.id, listing.id);
+        if (success) {
+          setIsSaved(false);
+          toast({
+            title: "Removed from Favorites",
+            description: "Listing has been removed from your favorites",
+          });
+        }
+      } else {
+        const success = favoriteService.addToFavorites(user.id, listing.id);
+        if (success) {
+          setIsSaved(true);
+          toast({
+            title: "Added to Favorites",
+            description: "Listing has been saved to your favorites",
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update favorite:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update favorites",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center min-h-[600px]">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p className="text-muted-foreground">Loading listing details...</p>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!listing) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center py-12">
+            <h1 className="text-2xl font-semibold mb-2">Listing Not Found</h1>
+            <p className="text-muted-foreground mb-4">The listing you're looking for doesn't exist or has been removed.</p>
+            <Button onClick={() => navigate('/listings')}>
+              Browse Other Listings
+            </Button>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       
       <div className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Content - 2 columns */}
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2">
             {/* Image Gallery */}
-            <ImageGallery images={mockListing.images} />
+            <div className="mb-8">
+              <ImageGallery images={listing.images} />
+              <div className="mt-4 flex items-center justify-between">
+                <Badge variant="secondary" className="text-sm">
+                  {listing.views || 0} views
+                </Badge>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSaveListing}
+                    className={cn(isSaved && "text-red-500")}
+                  >
+                    <Heart className={cn("h-4 w-4 mr-2", isSaved && "fill-current")} />
+                    {isSaved ? "Saved" : "Save"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowShare(true)}
+                  >
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Share
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowReport(true)}
+                  >
+                    <Flag className="h-4 w-4 mr-2" />
+                    Report
+                  </Button>
+                </div>
+              </div>
+            </div>
 
-            {/* Title and Price */}
-            <div className="flex flex-wrap items-start justify-between gap-4">
+            {/* Details */}
+            <div className="space-y-6">
               <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-3xl font-bold">
-                    {mockListing.year} {mockListing.make} {mockListing.model}
-                  </h1>
-                  <Badge variant="secondary">{mockListing.engineSize}cc</Badge>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="h-4 w-4" />
-                  <span>{mockListing.location}</span>
+                <h1 className="text-3xl font-bold mb-2">
+                  {listing.year} {listing.make} {listing.model}
+                </h1>
+                <div className="flex items-center gap-4 text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-4 w-4" />
+                    {listing.location}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    Listed {new Date(listing.created_at).toLocaleDateString()}
+                  </span>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-3xl font-bold text-primary mb-3">${mockListing.price.toLocaleString()}</div>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => setSaved(!saved)}
+
+              <div className="text-4xl font-bold text-primary">
+                ${listing.price.toLocaleString()}
+              </div>
+
+              <Separator />
+
+              <div>
+                <h3 className="text-lg font-semibold mb-3">Description</h3>
+                <p className="text-muted-foreground leading-relaxed">
+                  {listing.description || "No description provided."}
+                </p>
+              </div>
+
+              <Separator />
+
+              <div>
+                <h3 className="text-lg font-semibold mb-3">Specifications</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center gap-2">
+                    <Gauge className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Mileage:</span>
+                    <span className="text-sm font-medium">{listing.mileage.toLocaleString()} miles</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Cog className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Engine:</span>
+                    <span className="text-sm font-medium">{listing.engine_size}cc</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Palette className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Color:</span>
+                    <span className="text-sm font-medium">{listing.color}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Transmission:</span>
+                    <span className="text-sm font-medium">{listing.transmission}</span>
+                  </div>
+                </div>
+                {listing.vin && (
+                  <div className="mt-4">
+                    <span className="text-sm text-muted-foreground">VIN:</span>
+                    <span className="ml-2 text-sm font-medium font-mono">{listing.vin}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Contact Section */}
+              <div className="pt-6">
+                <div className="flex items-center gap-4">
+                  <Button
+                    onClick={handleAddToCart}
+                    className="flex-1"
+                    size="lg"
                   >
-                    <Heart className={cn("h-5 w-5", saved && "fill-current text-primary")} />
+                    <ShoppingCart className="h-4 w-4 mr-2" />
+                    Add to Cart
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => setShareDialogOpen(true)}
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowContact(true)}
+                    className="flex-1"
+                    size="lg"
                   >
-                    <Share2 className="h-5 w-5" />
+                    Contact Seller
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => setReportDialogOpen(true)}
-                  >
-                    <Flag className="h-5 w-5" />
-                  </Button>
-                </div>
-                <Button 
-                  className="w-full mt-4 gap-2" 
-                  size="lg"
-                  onClick={handleAddToCart}
-                  disabled={isInCart}
-                >
-                  <ShoppingCart className="h-5 w-5" />
-                  {isInCart ? 'In Cart' : 'Add to Cart'}
-                </Button>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Key Specs */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-                <Gauge className="h-5 w-5 text-primary" />
-                <div>
-                  <div className="text-sm text-muted-foreground">Mileage</div>
-                  <div className="font-semibold">{mockListing.mileage.toLocaleString()} mi</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-                <Calendar className="h-5 w-5 text-primary" />
-                <div>
-                  <div className="text-sm text-muted-foreground">Year</div>
-                  <div className="font-semibold">{mockListing.year}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-                <Palette className="h-5 w-5 text-primary" />
-                <div>
-                  <div className="text-sm text-muted-foreground">Color</div>
-                  <div className="font-semibold">{mockListing.color}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-                <Cog className="h-5 w-5 text-primary" />
-                <div>
-                  <div className="text-sm text-muted-foreground">Engine</div>
-                  <div className="font-semibold">{mockListing.engineSize}cc</div>
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Description */}
-            <div>
-              <h2 className="text-xl font-semibold mb-3">Description</h2>
-              <p className="text-muted-foreground leading-relaxed">{mockListing.description}</p>
-            </div>
-
-            <Separator />
-
-            {/* Specifications */}
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Specifications</h2>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="flex justify-between py-2 border-b border-border">
-                  <span className="text-muted-foreground">Make</span>
-                  <span className="font-medium">{mockListing.make}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-border">
-                  <span className="text-muted-foreground">Model</span>
-                  <span className="font-medium">{mockListing.model}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-border">
-                  <span className="text-muted-foreground">Year</span>
-                  <span className="font-medium">{mockListing.year}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-border">
-                  <span className="text-muted-foreground">Mileage</span>
-                  <span className="font-medium">{mockListing.mileage.toLocaleString()} mi</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-border">
-                  <span className="text-muted-foreground">Engine Size</span>
-                  <span className="font-medium">{mockListing.engineSize}cc</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-border">
-                  <span className="text-muted-foreground">Transmission</span>
-                  <span className="font-medium">{mockListing.transmission}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-border">
-                  <span className="text-muted-foreground">Color</span>
-                  <span className="font-medium">{mockListing.color}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-border">
-                  <span className="text-muted-foreground">VIN</span>
-                  <span className="font-medium text-xs">{mockListing.vin}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Sidebar - 1 column */}
+          {/* Sidebar */}
           <div className="space-y-6">
-            <SellerInfo 
-              {...mockListing.seller} 
-              onContactSeller={() => setContactDialogOpen(true)}
-            />
-            <FinancingCalculator price={mockListing.price} />
+            {/* Seller Info */}
+            <SellerInfo listingId={listing.id} />
+            
+            {/* Financing Calculator */}
+            <div className="bg-card rounded-lg p-6 border">
+              <h3 className="text-lg font-semibold mb-4">Financing Calculator</h3>
+              <FinancingCalculator price={listing.price} />
+            </div>
           </div>
         </div>
       </div>
 
       {/* Dialogs */}
       <ContactSellerDialog
-        open={contactDialogOpen}
-        onOpenChange={setContactDialogOpen}
-        sellerName={mockListing.seller.name}
-        listingTitle={`${mockListing.year} ${mockListing.make} ${mockListing.model}`}
+        open={showContact}
+        onOpenChange={setShowContact}
+        listingId={listing.id}
+        listingTitle={`${listing.year} ${listing.make} ${listing.model}`}
       />
+      
       <ReportListingDialog
-        open={reportDialogOpen}
-        onOpenChange={setReportDialogOpen}
-        listingId={mockListing.id}
+        open={showReport}
+        onOpenChange={setShowReport}
+        listingId={listing.id}
       />
+      
       <ShareDialog
-        open={shareDialogOpen}
-        onOpenChange={setShareDialogOpen}
-        title={`${mockListing.year} ${mockListing.make} ${mockListing.model}`}
+        open={showShare}
+        onOpenChange={setShowShare}
+        title={`${listing.year} ${listing.make} ${listing.model}`}
         url={window.location.href}
       />
 

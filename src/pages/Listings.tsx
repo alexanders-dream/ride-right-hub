@@ -1,94 +1,17 @@
-import { useState } from "react";
-import { Search, Grid3x3, List, Map as MapIcon } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Grid3x3, List, Map as MapIcon, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import { useToast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
 import ListingFilters from "@/components/ListingFilters";
 import ListingCard from "@/components/ListingCard";
 import Footer from "@/components/Footer";
+import { listingService } from "../database";
+import { Listing } from "../types/database";
 
-// Mock data
-const mockListings = [
-  {
-    id: 1,
-    image: "/placeholder.svg",
-    year: 2022,
-    make: "Harley-Davidson",
-    model: "Street Glide",
-    price: 24999,
-    mileage: 3200,
-    location: "Los Angeles, CA",
-    sellerType: "dealer" as const,
-    engineSize: 1868,
-    color: "Black"
-  },
-  {
-    id: 2,
-    image: "/placeholder.svg",
-    year: 2021,
-    make: "Yamaha",
-    model: "YZF-R1",
-    price: 16500,
-    mileage: 5800,
-    location: "San Diego, CA",
-    sellerType: "private" as const,
-    engineSize: 998,
-    color: "Blue"
-  },
-  {
-    id: 3,
-    image: "/placeholder.svg",
-    year: 2023,
-    make: "BMW",
-    model: "R 1250 GS",
-    price: 19999,
-    mileage: 1200,
-    location: "Phoenix, AZ",
-    sellerType: "dealer" as const,
-    engineSize: 1254,
-    color: "White"
-  },
-  {
-    id: 4,
-    image: "/placeholder.svg",
-    year: 2020,
-    make: "Ducati",
-    model: "Panigale V4",
-    price: 22000,
-    mileage: 4500,
-    location: "Las Vegas, NV",
-    sellerType: "private" as const,
-    engineSize: 1103,
-    color: "Red"
-  },
-  {
-    id: 5,
-    image: "/placeholder.svg",
-    year: 2022,
-    make: "Honda",
-    model: "Gold Wing",
-    price: 28500,
-    mileage: 2100,
-    location: "Denver, CO",
-    sellerType: "dealer" as const,
-    engineSize: 1833,
-    color: "Silver"
-  },
-  {
-    id: 6,
-    image: "/placeholder.svg",
-    year: 2021,
-    make: "Kawasaki",
-    model: "Ninja ZX-10R",
-    price: 15999,
-    mileage: 6200,
-    location: "Austin, TX",
-    sellerType: "private" as const,
-    engineSize: 998,
-    color: "Green"
-  },
-];
+
 
 const Listings = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");

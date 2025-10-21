@@ -25,18 +25,28 @@ const Auth = () => {
     try {
       if (isLogin) {
         await login(email, password);
+        toast({
+          title: 'Welcome back!',
+          description: 'Logged in successfully.',
+        });
       } else {
         await signup(email, password, name, role);
+        toast({
+          title: 'Account created!',
+          description: `Welcome to BikeMarket, ${name}! Your account has been created successfully.`,
+        });
       }
+
+      // Role-based navigation after auth
+      if (role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (error) {
       toast({
-        title: 'Success!',
-        description: isLogin ? 'Logged in successfully' : 'Account created successfully',
-      });
-      navigate('/dashboard');
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
+        title: 'Authentication Failed',
+        description: error instanceof Error ? error.message : 'Please check your credentials and try again.',
         variant: 'destructive',
       });
     }
@@ -118,7 +128,7 @@ const Auth = () => {
                   </div>
                   <div className="space-y-2">
                     <Label>I want to</Label>
-                    <RadioGroup value={role} onValueChange={(v: any) => setRole(v)}>
+                    <RadioGroup value={role} onValueChange={(v: 'buyer' | 'seller' | 'both' | 'admin') => setRole(v)}>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="buyer" id="buyer" />
                         <Label htmlFor="buyer">Buy motorcycles</Label>

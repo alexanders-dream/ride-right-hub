@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { userService, listingService, blogService } from "../database";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,15 +14,28 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Trash2, Edit, Plus, Users, Bike, FileText, BarChart } from "lucide-react";
+import { Trash2, Edit, Plus, Users, Bike, FileText, BarChart, Save, Eye, EyeOff, Loader2 } from "lucide-react";
 
 const AdminDashboard = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [listings, setListings] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
-  const [blogPosts, setBlogPosts] = useState<any[]>([]);
+  const [listings, setListings] = useState<Array<Record<string, unknown>>>([]);
+  const [users, setUsers] = useState<Array<Record<string, unknown>>>([]);
+  const [blogPosts, setBlogPosts] = useState<Array<Record<string, unknown>>>([]);
+  const [editingBlogPost, setEditingBlogPost] = useState<Record<string, unknown> | null>(null);
+  const [showBlogForm, setShowBlogForm] = useState(false);
+  const [blogFormData, setBlogFormData] = useState({
+    title: '',
+    content: '',
+    excerpt: '',
+    author: '',
+    category: 'Buying Guide' as const,
+    image: '',
+    readTime: '',
+    status: 'draft' as const
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     // Check authentication
@@ -35,53 +49,183 @@ const AdminDashboard = () => {
       return;
     }
 
-    // SECURITY WARNING: This is mock implementation using localStorage
-    // In production, admin role MUST be checked server-side with proper authentication
-    // Never trust client-side role checks - they can be easily manipulated
+    // Check admin role
     if (user?.role !== 'admin') {
       toast({
         title: "Access Denied",
         description: "You do not have permission to access the admin dashboard.",
         variant: "destructive",
       });
-      navigate("/");
+      navigate("/dashboard");
       return;
     }
 
-    // Load mock data
-    loadMockData();
-  }, [isAuthenticated, user, navigate, toast]);
+    // Load data from localStorage database
+    loadDatabaseData();
+  }, [isAuthenticated, user, navigate, toast, loadDatabaseData]);
 
-  const loadMockData = () => {
-    // Mock listings
-    setListings([
-      { id: 1, title: "2020 Harley-Davidson Street Glide", seller: "John Doe", status: "active", price: 18500, views: 234 },
-      { id: 2, title: "2019 Yamaha YZF-R6", seller: "Jane Smith", status: "pending", price: 9800, views: 156 },
-      { id: 3, title: "2021 Kawasaki Ninja 650", seller: "Bob Wilson", status: "active", price: 7200, views: 189 }
-    ]);
+  const loadDatabaseData = useCallback(() => {
+    try {
+      // Load real listings from database
+      const dbListings = listingService.getAllListings();
+      setListings(dbListings);
 
-    // Mock users
-    setUsers([
-      { id: 1, name: "John Doe", email: "john@example.com", role: "seller", joined: "2024-01-15", listings: 3 },
-      { id: 2, name: "Jane Smith", email: "jane@example.com", role: "buyer", joined: "2024-02-20", listings: 1 },
-      { id: 3, name: "Bob Wilson", email: "bob@example.com", role: "both", joined: "2024-03-10", listings: 2 }
-    ]);
+      // Load real users from database
+      const dbUsers = userService.getAllUsers();
+      setUsers(dbUsers);
 
-    // Mock blog posts
-    setBlogPosts([
-      { id: 1, title: "Top 10 Motorcycles for Beginners", author: "Admin", status: "published", date: "2024-03-15" },
-      { id: 2, title: "Essential Motorcycle Maintenance Tips", author: "Admin", status: "draft", date: "2024-03-12" }
-    ]);
+      // Load real blog posts from database
+      const dbBlogPosts = blogService.getAllBlogPosts();
+      setBlogPosts(dbBlogPosts);
+    } catch (error) {
+      console.error('Error loading database data:', error);
+      toast({
+        title: "Database Error",
+        description: "Failed to load admin dashboard data.",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
+  const deleteListing = async (id: number) => {
+    try {
+      const success = listingService.deleteListing(id);
+      if (success) {
+        // Refresh listings data
+        const dbListings = listingService.getAllListings();
+        setListings(dbListings);
+        toast({ title: "Listing deleted successfully" });
+      } else {
+        toast({ title: "Failed to delete listing", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error('Error deleting listing:', error);
+      toast({ title: "Error deleting listing", variant: "destructive" });
+    }
   };
 
-  const deleteListing = (id: number) => {
-    setListings(listings.filter(l => l.id !== id));
-    toast({ title: "Listing deleted successfully" });
+  const deleteUser = async (id: number) => {
+    try {
+      const success = userService.deleteUser(id);
+      if (success) {
+        // Refresh users data
+        const dbUsers = userService.getAllUsers();
+        setUsers(dbUsers);
+        toast({ title: "User deleted successfully" });
+      } else {
+        toast({ title: "Failed to delete user", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast({ title: "Error deleting user", variant: "destructive" });
+    }
   };
 
-  const deleteUser = (id: number) => {
-    setUsers(users.filter(u => u.id !== id));
-    toast({ title: "User deleted successfully" });
+  // Blog management functions
+  const handleCreateBlogPost = async () => {
+    try {
+      setIsSubmitting(true);
+      
+      const newPost = blogService.createBlogPost({
+        title: blogFormData.title,
+        content: blogFormData.content,
+        excerpt: blogFormData.excerpt,
+        author: blogFormData.author,
+        category: blogFormData.category,
+        image: blogFormData.image,
+        readTime: blogFormData.readTime
+      }, blogFormData.status);
+      
+      if (newPost) {
+        const updatedPosts = blogService.getAllBlogPosts();
+        setBlogPosts(updatedPosts);
+        resetBlogForm();
+        toast({ title: "Blog post created successfully" });
+      }
+    } catch (error) {
+      console.error('Error creating blog post:', error);
+      toast({ title: "Error creating blog post", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateBlogPost = async () => {
+    if (!editingBlogPost) return;
+    
+    try {
+      setIsSubmitting(true);
+      
+      const updatedPost = blogService.updateBlogPost(editingBlogPost.id, {
+        title: blogFormData.title,
+        content: blogFormData.content,
+        excerpt: blogFormData.excerpt,
+        author: blogFormData.author,
+        category: blogFormData.category,
+        image: blogFormData.image,
+        readTime: blogFormData.readTime,
+        status: blogFormData.status
+      });
+      
+      if (updatedPost) {
+        const updatedPosts = blogService.getAllBlogPosts();
+        setBlogPosts(updatedPosts);
+        resetBlogForm();
+        toast({ title: "Blog post updated successfully" });
+      }
+    } catch (error) {
+      console.error('Error updating blog post:', error);
+      toast({ title: "Error updating blog post", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteBlogPost = async (id: number) => {
+    try {
+      const success = blogService.deleteBlogPost(id);
+      if (success) {
+        const updatedPosts = blogService.getAllBlogPosts();
+        setBlogPosts(updatedPosts);
+        toast({ title: "Blog post deleted successfully" });
+      } else {
+        toast({ title: "Failed to delete blog post", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error('Error deleting blog post:', error);
+      toast({ title: "Error deleting blog post", variant: "destructive" });
+    }
+  };
+
+  const handleEditBlogPost = (post: Record<string, unknown>) => {
+    setEditingBlogPost(post);
+    setBlogFormData({
+      title: post.title,
+      content: post.content,
+      excerpt: post.excerpt,
+      author: post.author,
+      category: post.category,
+      image: post.image || '',
+      readTime: post.readTime,
+      status: post.status
+    });
+    setShowBlogForm(true);
+  };
+
+  const resetBlogForm = () => {
+    setEditingBlogPost(null);
+    setBlogFormData({
+      title: '',
+      content: '',
+      excerpt: '',
+      author: '',
+      category: 'Buying Guide',
+      image: '',
+      readTime: '',
+      status: 'draft'
+    });
+    setShowBlogForm(false);
+    setIsSubmitting(false);
   };
 
   const deleteBlogPost = (id: number) => {
@@ -240,8 +384,8 @@ const AdminDashboard = () => {
                         <TableCell>
                           <Badge variant="outline">{user.role}</Badge>
                         </TableCell>
-                        <TableCell>{user.joined}</TableCell>
-                        <TableCell>{user.listings}</TableCell>
+                        <TableCell>{user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</TableCell>
+                        <TableCell>{listingService.getListingsBySeller(user.id).length}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
                             <Button variant="ghost" size="sm">

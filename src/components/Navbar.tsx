@@ -11,14 +11,24 @@ const Navbar = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const { cartCount } = useCart();
-  
-  const navLinks = [
+
+  // Role-based navigation
+  const publicNavLinks = [
     { path: "/", label: "Home" },
     { path: "/listings", label: "Browse Bikes" },
-    { path: "/sell", label: "Sell Your Bike" },
     { path: "/pricing-guide", label: "Pricing Guide" },
     { path: "/blog", label: "Blog" },
   ];
+
+  const authenticatedNavLinks = [
+    { path: "/", label: "Home" },
+    { path: "/listings", label: "Browse Bikes" },
+    { path: "/sell", label: "Sell Your Bike", roles: ['seller', 'both'] },
+    { path: "/pricing-guide", label: "Pricing Guide" },
+    { path: "/blog", label: "Blog" },
+  ];
+
+  const navLinks = isAuthenticated ? authenticatedNavLinks : publicNavLinks;
 
   const isActive = (path: string) => location.pathname === path;
 
