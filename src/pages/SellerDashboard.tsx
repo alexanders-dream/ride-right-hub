@@ -27,11 +27,11 @@ import {
   CheckCircle,
   Clock,
   Loader2, 
-  Heart
+  Heart,
+  ArrowLeft
 } from 'lucide-react';
 import { listingService, messageService, userService } from '../database';
 import { Listing, Message, User } from '../types/database';
-import CreateListingForm from '@/components/CreateListingForm';
 
 const SellerDashboard = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -40,6 +40,7 @@ const SellerDashboard = () => {
   
   const [listings, setListings] = useState<Listing[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [sellerStats, setSellerStats] = useState({
     totalListings: 0,
     activeListings: 0,
@@ -49,7 +50,7 @@ const SellerDashboard = () => {
     conversionRate: 0
   });
   const [loading, setLoading] = useState(true);
-  const [isCreateListingOpen, setCreateListingOpen] = useState(false);
+  const [showListingForm, setShowListingForm] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -75,28 +76,46 @@ const SellerDashboard = () => {
       setLoading(true);
       
       // Load seller's listings
-      const sellerListings = await listingService.getListingsBySeller(user!.id);
-      setListings(sellerListings || []);
+      let sellerListings: Listing[] = [];
+      try {
+        const response = await listingService.getListingsBySeller(user!.id);
+        sellerListings = (Array.isArray(response) ? response : []).map(listing => ({
+          ...listing,
+          transmission: listing.transmission as 'Manual' | 'Automatic' | 'Semi-Automatic'
+        }));
+      } catch (listingError) {
+        console.warn('Failed to fetch listings:', listingError);
+        sellerListings = [];
+      }
+      setListings(sellerListings);
       
       // Load messages related to seller's listings
-      const allMessages = await messageService.getUserMessages();
-      const sellerMessages = allMessages?.filter((msg: Message) => 
-        msg.listing_id && sellerListings?.some((listing: Listing) => listing.id === msg.listing_id)
-      ) || [];
+      let allMessages: Message[] = [];
+      try {
+        const response = await messageService.getMessages();
+        allMessages = Array.isArray(response) ? response : [];
+      } catch (messageError) {
+        console.warn('Failed to fetch messages:', messageError);
+        allMessages = [];
+      }
+      
+      const sellerMessages = allMessages.filter((msg: Message) => 
+        msg.listing_id && sellerListings.some((listing: Listing) => listing.id === msg.listing_id)
+      );
       setMessages(sellerMessages);
       
       // Calculate seller statistics
-      const activeListings = sellerListings?.filter((l: Listing) => l.status === 'active') || [];
-      const totalViews = sellerListings?.reduce((sum: number, l: Listing) => sum + (l.views || 0), 0) || 0;
-      const averageViews = sellerListings?.length > 0 ? totalViews / sellerListings.length : 0;
+      const activeListings = sellerListings.filter((l: Listing) => l.status === 'active');
+      const totalViews = sellerListings.reduce((sum: number, l: Listing) => sum + (l.views || 0), 0);
+      const averageViews = sellerListings.length > 0 ? totalViews / sellerListings.length : 0;
       
       setSellerStats({
-        totalListings: sellerListings?.length || 0,
+        totalListings: sellerListings.length,
         activeListings: activeListings.length,
         totalViews,
         averageViews: Math.round(averageViews),
         inquiries: sellerMessages.length,
-        conversionRate: sellerListings?.length > 0 ? Math.round((activeListings.length / sellerListings.length) * 100) : 0
+        conversionRate: sellerListings.length > 0 ? Math.round((activeListings.length / sellerListings.length) * 100) : 0
       });
       
     } catch (error) {
@@ -112,12 +131,24 @@ const SellerDashboard = () => {
   };
 
   const handleListingCreated = () => {
-    setCreateListingOpen(false);
+    setShowListingForm(false);
     loadSellerData();
   };
 
+  // Temporary component until EmbeddedListingForm is created
+  const EmbeddedListingForm = ({ onFinish }: { onFinish: () => void }) => {
+    return (
+      <div className="p-6 bg-white rounded-lg border">
+        <p className="text-muted-foreground mb-4">Listing form component coming soon...</p>
+        <Button onClick={onFinish}>Close Form</Button>
+      </div>
+    );
+  };
+
   const editListing = (listingId: number) => {
-    navigate(`/sell?id=${listingId}`);
+    // For now, we'll just show the form for creating new listings
+    // TODO: Add editing functionality to EmbeddedListingForm
+    setShowListingForm(true);
   };
 
   const deleteListing = async (id: number) => {
@@ -186,38 +217,42 @@ const SellerDashboard = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
+        {showListingForm ? (
           <div>
-            <h1 className="text-3xl font-bold">Seller Dashboard</h1>
-            <p className="text-muted-foreground">Manage your motorcycle listings and track performance</p>
+            <div className="flex justify-between items-center mb-6">
+              <Button variant="ghost" onClick={() => setShowListingForm(false)}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Dashboard
+              </Button>
+              <h1 className="text-2xl font-bold">Create New Listing</h1>
+              <div></div>
+            </div>
+            <EmbeddedListingForm onFinish={handleListingCreated} />
           </div>
-          <div className="flex gap-2">
-            <Dialog open={isCreateListingOpen} onOpenChange={setCreateListingOpen}>
-              <DialogTrigger asChild>
-                <Button>
+        ) : (
+          <div>
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                <h1 className="text-3xl font-bold">Seller Dashboard</h1>
+                <p className="text-muted-foreground">Manage your motorcycle listings and track performance</p>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={() => setShowListingForm(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   New Listing
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl">
-                <DialogHeader>
-                  <DialogTitle>Create New Listing</DialogTitle>
-                </DialogHeader>
-                <CreateListingForm onFinish={handleListingCreated} />
-              </DialogContent>
-            </Dialog>
-            {user.role === 'BOTH' && (
-              <Button variant="outline" onClick={() => navigate('/buyer-dashboard')}>
-                <Heart className="h-4 w-4 mr-2" />
-                Switch to Buyer View
-              </Button>
-            )}
-            <Button variant="outline" onClick={logout}>Logout</Button>
-          </div>
-        </div>
+                {user.role === 'BOTH' && (
+                  <Button variant="outline" onClick={() => navigate('/buyer-dashboard')}>
+                    <Heart className="h-4 w-4 mr-2" />
+                    Switch to Buyer View
+                  </Button>
+                )}
+                <Button variant="outline" onClick={logout}>Logout</Button>
+              </div>
+            </div>
 
-        {/* Seller Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {/* Seller Statistics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -291,7 +326,7 @@ const SellerDashboard = () => {
                 <CardContent className="py-12 text-center">
                   <Bike className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground mb-4">You haven't created any listings yet.</p>
-                  <Button onClick={() => setCreateListingOpen(true)}>
+                  <Button onClick={() => setShowListingForm(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     Create Your First Listing
                   </Button>
@@ -518,11 +553,13 @@ const SellerDashboard = () => {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
-export default SellerDashboard;
+export { SellerDashboard as default };

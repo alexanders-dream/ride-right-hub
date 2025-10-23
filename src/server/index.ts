@@ -1114,7 +1114,7 @@ app.post('/api/saved-searches', authenticateToken, async (req: any, res) => {
       data: {
         userId: req.user.userId,
         name,
-        filters: JSON.stringify(filters),
+        criteria: filters, // Prisma schema uses 'criteria' field
       }
     });
 

@@ -106,7 +106,7 @@ const Dashboard = () => {
     try {
       const success = await favoriteService.removeFromFavorites(user.id, listingId);
       if (success) {
-        const updated = favorites.filter(f => f.id !== id);
+        const updated = favorites.filter(f => f.id.toString() !== id);
         setFavorites(updated);
         toast({
           title: "Removed from Favorites",
@@ -123,17 +123,17 @@ const Dashboard = () => {
     }
   };
 
-  const deleteListing = async (id: string) => {
+  const deleteListing = async (id: number) => {
     if (!user) return;
     
     try {
-      const success = await listingService.deleteListing(id);
+      const success = await listingService.deleteListing(id.toString());
       if (success) {
         const updated = listings.filter(l => l.id !== id);
         setListings(updated);
         toast({
           title: "Listing Deleted",
-          description: "Your listing has been deleted successfully",
+          description: "Your listing has been deleted",
         });
       }
     } catch (error) {
@@ -146,9 +146,9 @@ const Dashboard = () => {
     }
   };
 
-  const deleteSearch = async (id: string) => {
+  const deleteSearch = async (id: number) => {
     try {
-      const success = await savedSearchService.deleteSavedSearch(id);
+      const success = await searchService.deleteSavedSearch(id.toString());
       if (success) {
         const updated = savedSearches.filter(s => s.id !== id);
         setSavedSearches(updated);
@@ -158,7 +158,7 @@ const Dashboard = () => {
         });
       }
     } catch (error) {
-      console.error('Failed to delete saved search:', error);
+      console.error('Failed to delete search:', error);
       toast({
         title: "Error",
         description: "Failed to delete saved search",
@@ -212,15 +212,15 @@ const Dashboard = () => {
             <TabsContent value="listings" className="space-y-6">
               <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-semibold">My Listings</h2>
-                <Button onClick={() => navigate('/sell')}>Create New Listing</Button>
+                <Button onClick={() => navigate('/seller-dashboard')}>Create New Listing</Button>
               </div>
 
               {listings.length === 0 ? (
                 <Card>
                   <CardContent className="py-12 text-center">
-                    <p className="text-muted-foreground mb-4">You haven't created any listings yet.</p>
-                    <Button onClick={() => navigate('/sell')}>Create Your First Listing</Button>
-                  </CardContent>
+                  <p className="text-muted-foreground mb-4">You haven't created any listings yet.</p>
+                  <Button onClick={() => navigate('/seller-dashboard')}>Create Your First Listing</Button>
+                </CardContent>
                 </Card>
               ) : (
                 <div className="grid gap-4">
@@ -254,7 +254,7 @@ const Dashboard = () => {
                                 <Edit className="w-4 h-4 mr-2" />
                                 Edit
                               </Button>
-                              <Button variant="outline" size="sm" onClick={() => deleteListing(listing.id.toString())}>
+                              <Button variant="outline" size="sm" onClick={() => deleteListing(listing.id)}>
                                 <Trash2 className="w-4 h-4 mr-2" />
                                 Delete
                               </Button>
@@ -295,7 +295,7 @@ const Dashboard = () => {
                           <Button size="sm" className="flex-1" onClick={() => navigate(`/listing/${bike.listing_id || bike.id}`)}>
                             View Details
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => removeFavorite(bike.id.toString(), (bike.listing_id || bike.id).toString())}>
+                          <Button size="sm" variant="outline" onClick={() => removeFavorite(bike.id.toString(), bike.listing_id?.toString() || bike.id.toString())}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
@@ -331,7 +331,7 @@ const Dashboard = () => {
                           <Button size="sm" onClick={() => navigate(`/listings?${search.filters}`)}>
                             View Results
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => deleteSearch(search.id)}>
+                          <Button size="sm" variant="outline" onClick={() => deleteSearch(search.id.toString())}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>

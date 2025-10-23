@@ -23,7 +23,7 @@ export interface Listing {
   transmission: 'Manual' | 'Automatic' | 'Semi-Automatic';
   description?: string;
   images: string[];
-  status: 'active' | 'pending' | 'sold';
+  status: 'active' | 'pending' | 'sold' | 'draft';
   seller_id: number;
   seller_type: 'dealer' | 'private';
   created_at: string;

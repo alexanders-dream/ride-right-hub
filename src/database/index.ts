@@ -318,12 +318,13 @@ export const listingService = {
     try {
       const response = await apiCall<Listing[]>(`/listings?sellerId=${sellerId}`, 'GET');
       if (!Array.isArray(response)) {
-        throw new Error('Invalid response format for seller listings');
+        console.warn(`Invalid response format for seller listings: expected array, got ${typeof response}`, response);
+        return [];
       }
       return response;
     } catch (error) {
       console.error(`Failed to fetch listings for seller ${sellerId}:`, error);
-      throw new Error(`Failed to fetch listings for seller ${sellerId}`);
+      return [];
     }
   },
 
