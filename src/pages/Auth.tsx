@@ -14,8 +14,9 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [role, setRole] = useState<'buyer' | 'seller' | 'both' | 'admin'>('buyer');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [role, setRole] = useState<'BUYER' | 'SELLER' | 'BOTH' | 'ADMIN'>('BUYER');
   const { login, signup } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -30,15 +31,15 @@ const Auth = () => {
           description: 'Logged in successfully.',
         });
       } else {
-        await signup(email, password, name, role);
+        await signup(email, password, firstName, lastName, role);
         toast({
           title: 'Account created!',
-          description: `Welcome to BikeMarket, ${name}! Your account has been created successfully.`,
+          description: `Welcome to BikeMarket, ${firstName}! Your account has been created successfully.`,
         });
       }
 
       // Role-based navigation after auth
-      if (role === 'admin') {
+      if (role === 'ADMIN') {
         navigate('/admin');
       } else {
         navigate('/dashboard');
@@ -96,15 +97,27 @@ const Auth = () => {
               
               <TabsContent value="signup">
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input
-                      id="name"
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input
+                        id="firstName"
+                        type="text"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input
+                        id="lastName"
+                        type="text"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        required
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>
@@ -128,21 +141,21 @@ const Auth = () => {
                   </div>
                   <div className="space-y-2">
                     <Label>I want to</Label>
-                    <RadioGroup value={role} onValueChange={(v: 'buyer' | 'seller' | 'both' | 'admin') => setRole(v)}>
+                    <RadioGroup value={role} onValueChange={(v: 'BUYER' | 'SELLER' | 'BOTH' | 'ADMIN') => setRole(v)}>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="buyer" id="buyer" />
+                        <RadioGroupItem value="BUYER" id="buyer" />
                         <Label htmlFor="buyer">Buy motorcycles</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="seller" id="seller" />
+                        <RadioGroupItem value="SELLER" id="seller" />
                         <Label htmlFor="seller">Sell motorcycles</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="both" id="both" />
+                        <RadioGroupItem value="BOTH" id="both" />
                         <Label htmlFor="both">Both buy and sell</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="admin" id="admin" />
+                        <RadioGroupItem value="ADMIN" id="admin" />
                         <Label htmlFor="admin">Admin (for testing)</Label>
                       </div>
                     </RadioGroup>

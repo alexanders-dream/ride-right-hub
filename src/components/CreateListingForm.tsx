@@ -14,8 +14,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { listingService } from "../database";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 
 const formSchema = z.object({
   make: z.string().min(1, "Make is required"),
@@ -31,7 +29,11 @@ const formSchema = z.object({
   price: z.string().min(1, "Price is required"),
 });
 
-const SellPage = () => {
+interface CreateListingFormProps {
+    onFinish: () => void;
+}
+
+const CreateListingForm: React.FC<CreateListingFormProps> = ({ onFinish }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,7 +79,6 @@ const SellPage = () => {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      // Only proceed if we have files
       const newImages = Array.from(files)
         .filter(file => file.size <= 10 * 1024 * 1024) // 10MB limit
         .slice(0, 10 - uploadedImages.length) // Limit to 10 total images
@@ -111,41 +112,70 @@ const SellPage = () => {
     try {
       const listingData = {
         title: `${data.year} ${data.make} ${data.model}`,
-        make: data.make,
-        model: data.model,
+        make: data.make.trim(),
+        model: data.model.trim(),
         year: parseInt(data.year),
         mileage: parseInt(data.mileage),
         price: parseInt(data.price),
-        vin: data.vin,
-        location: data.location,
+        vin: data.vin?.trim() || '',
+        location: data.location.trim(),
         engine_size: parseInt(data.engineSize),
-        color: data.color,
+        color: data.color.trim(),
         transmission: data.transmission as 'Manual' | 'Automatic' | 'Semi-Automatic',
-        description: data.description,
-        images: uploadedImages,
+        description: data.description.trim(),
+        images: uploadedImages.filter(img => img && img.trim() !== ''),
         seller_id: user.id,
         seller_type: 'private' as const,
-        status: 'pending' as const,
+        status: 'active' as const,
       };
 
-      const newListing = listingService.createListing(listingData);
+      if (!listingData.make || !listingData.model || !listingData.location) {
+        throw new Error('Required fields are missing');
+      }
+
+      if (!listingData.images || listingData.images.length === 0) {
+        throw new Error('At least one image is required');
+      }
+
+      if (listingData.year < 1900 || listingData.year > new Date().getFullYear() + 1) {
+        throw new Error('Invalid year');
+      }
+
+      if (listingData.price <= 0) {
+        throw new Error('Price must be greater than 0');
+      }
+
+      if (listingData.mileage < 0) {
+        throw new Error('Mileage cannot be negative');
+      }
+
+      const newListing = await listingService.createListing(listingData);
       
       if (newListing) {
         toast({
           title: "Listing Created!",
           description: "Your motorcycle has been listed successfully and is pending review.",
         });
-        navigate('/dashboard');
+        onFinish();
       } else {
         throw new Error('Failed to create listing');
       }
     } catch (error) {
       console.error('Failed to create listing:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       toast({
-        title: "Error",
-        description: "Failed to create listing. Please try again.",
+        title: "Listing Creation Failed",
+        description: errorMessage || "Failed to create listing. Please check all fields and try again.",
         variant: "destructive",
       });
+      
+      if (errorMessage.includes('Required fields') || errorMessage.includes('Missing')) {
+        setCurrentStep(1);
+      } else if (errorMessage.includes('image')) {
+        setCurrentStep(3);
+      } else if (errorMessage.includes('price') || errorMessage.includes('year') || errorMessage.includes('mileage')) {
+        setCurrentStep(1);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -175,40 +205,7 @@ const SellPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-primary/10 to-primary/5 border-b border-border">
-        <div className="container mx-auto px-4 py-16 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">Sell Your Motorcycle</h1>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Reach thousands of potential buyers and get the best price for your bike
-          </p>
-
-          {/* Benefits */}
-          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto mt-12">
-            <Card className="p-6">
-              <div className="text-3xl mb-3">📈</div>
-              <h3 className="font-semibold mb-2">Maximum Exposure</h3>
-              <p className="text-sm text-muted-foreground">Your listing reaches thousands of active buyers</p>
-            </Card>
-            <Card className="p-6">
-              <div className="text-3xl mb-3">✅</div>
-              <h3 className="font-semibold mb-2">Verified Buyers</h3>
-              <p className="text-sm text-muted-foreground">Connect with serious, verified motorcycle enthusiasts</p>
-            </Card>
-            <Card className="p-6">
-              <div className="text-3xl mb-3">⚡</div>
-              <h3 className="font-semibold mb-2">Sell Fast</h3>
-              <p className="text-sm text-muted-foreground">Average listing sells in under 14 days</p>
-            </Card>
-          </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto px-4 py-12">
-        {/* Progress Steps */}
+    <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto mb-12">
           <div className="flex items-center justify-between">
             {steps.map((step, index) => (
@@ -241,11 +238,9 @@ const SellPage = () => {
           </div>
         </div>
 
-        {/* Form */}
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="max-w-4xl mx-auto">
             <Card className="p-8">
-              {/* Step 1: Core Details */}
               {currentStep === 1 && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold mb-6">Core Details</h2>
@@ -401,7 +396,6 @@ const SellPage = () => {
                 </div>
               )}
 
-              {/* Step 2: Description & Photos */}
               {currentStep === 2 && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold mb-6">Description & Photos</h2>
@@ -414,7 +408,7 @@ const SellPage = () => {
                         <FormLabel>Description *</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Describe your motorcycle's condition, features, and any modifications..."
+                            placeholder="Describe your motorcycle\'s condition, features, and any modifications..."
                             className="min-h-[200px]"
                             {...field}
                           />
@@ -452,7 +446,6 @@ const SellPage = () => {
                 </div>
               )}
 
-              {/* Step 3: Pricing */}
               {currentStep === 3 && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold mb-6">Pricing</h2>
@@ -478,7 +471,7 @@ const SellPage = () => {
                     <h3 className="font-semibold mb-2">Pricing Tips</h3>
                     <ul className="text-sm text-muted-foreground space-y-1">
                       <li>• Research similar bikes in your area to set a competitive price</li>
-                      <li>• Consider the bike's condition, mileage, and any upgrades</li>
+                      <li>• Consider the bike\'s condition, mileage, and any upgrades</li>
                       <li>• Price slightly higher to leave room for negotiation</li>
                       <li>• Listing fee: 3% of final sale price</li>
                     </ul>
@@ -486,7 +479,6 @@ const SellPage = () => {
                 </div>
               )}
 
-              {/* Step 4: Review */}
               {currentStep === 4 && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold mb-6">Review Your Listing</h2>
@@ -561,7 +553,6 @@ const SellPage = () => {
                 </div>
               )}
 
-              {/* Navigation Buttons */}
               <div className="flex justify-between mt-8 pt-6 border-t border-border">
                 <Button
                   type="button"
@@ -593,10 +584,7 @@ const SellPage = () => {
           </form>
         </Form>
       </div>
-
-      <Footer />
-    </div>
   );
 };
 
-export default SellPage;
+export default CreateListingForm;

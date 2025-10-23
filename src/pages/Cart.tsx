@@ -30,7 +30,7 @@ const Cart = () => {
 
       try {
         setLoading(true);
-        const items = cartService.getCartItems(user.id);
+        const items = await cartService.getCartItems(user.id);
         setDbCartItems(items);
       } catch (error) {
         console.error('Failed to load cart items:', error);
@@ -47,9 +47,9 @@ const Cart = () => {
     loadCartItems();
   }, [user, isAuthenticated, cartItems, toast]);
 
-  const handleRemoveItem = (itemId: number, listingId: number) => {
+  const handleRemoveItem = async (itemId: number, listingId: number) => {
     if (user) {
-      const success = cartService.removeFromCart(user.id, listingId);
+      const success = await cartService.removeFromCart(user.id, listingId);
       if (success) {
         setDbCartItems(prev => prev.filter(item => item.id !== itemId));
       } else {

@@ -33,25 +33,57 @@ const Dashboard = () => {
 
     if (!user) return;
 
+    // Redirect to role-specific dashboard (database roles are uppercase)
+    if (user.role === 'ADMIN') {
+      navigate('/admin');
+      return;
+    } else if (user.role === 'BUYER') {
+      navigate('/buyer-dashboard');
+      return;
+    } else if (user.role === 'SELLER') {
+      navigate('/seller-dashboard');
+      return;
+    } else if (user.role === 'BOTH') {
+      // For users with both roles, redirect to seller dashboard to show both capabilities
+      navigate('/seller-dashboard');
+      return;
+    } else {
+      // Fallback for any other role types
+      toast({
+        title: "Access Denied",
+        description: "Your role does not have dashboard access",
+        variant: "destructive",
+      });
+      navigate('/');
+      return;
+    }
+
     const loadUserData = async () => {
       try {
         setLoading(true);
         
         // Load user's listings
-        const userListings = listingService.getListingsBySeller(user.id);
-        setListings(userListings);
+        const userListings = await listingService.getListingsBySeller(user.id);
+        const typedListings = userListings.map((l: any) => ({
+          ...l,
+          transmission: l.transmission as Listing['transmission'],
+          status: l.status as Listing['status'],
+          seller_type: l.seller_type as Listing['seller_type'],
+          updated_at: l.updated_at || new Date().toISOString()
+        }));
+        setListings(typedListings);
         
         // Load user's favorites
-        const userFavorites = favoriteService.getUserFavorites(user.id);
-        setFavorites(userFavorites);
+        const userFavorites = await favoriteService.getUserFavorites();
+        setFavorites(userFavorites as Favorite[]);
         
         // Load user's saved searches
-        const userSavedSearches = savedSearchService.getSavedSearches(user.id);
-        setSavedSearches(userSavedSearches);
+        const userSavedSearches = await savedSearchService.getSavedSearches();
+        setSavedSearches(userSavedSearches as SavedSearch[]);
         
         // Load user's messages
-        const userMessages = messageService.getUserMessages(user.id);
-        setMessages(userMessages);
+        const userMessages = await messageService.getUserMessages();
+        setMessages(userMessages as Message[]);
         
       } catch (error) {
         console.error('Failed to load user data:', error);
@@ -68,11 +100,11 @@ const Dashboard = () => {
     loadUserData();
   }, [isAuthenticated, navigate, user, toast]);
 
-  const removeFavorite = async (id: number, listingId: number) => {
+  const removeFavorite = async (id: string, listingId: string) => {
     if (!user) return;
     
     try {
-      const success = favoriteService.removeFromFavorites(user.id, listingId);
+      const success = await favoriteService.removeFromFavorites(user.id, listingId);
       if (success) {
         const updated = favorites.filter(f => f.id !== id);
         setFavorites(updated);
@@ -91,11 +123,11 @@ const Dashboard = () => {
     }
   };
 
-  const deleteListing = async (id: number) => {
+  const deleteListing = async (id: string) => {
     if (!user) return;
     
     try {
-      const success = listingService.deleteListing(id);
+      const success = await listingService.deleteListing(id);
       if (success) {
         const updated = listings.filter(l => l.id !== id);
         setListings(updated);
@@ -114,9 +146,9 @@ const Dashboard = () => {
     }
   };
 
-  const deleteSearch = async (id: number) => {
+  const deleteSearch = async (id: string) => {
     try {
-      const success = savedSearchService.deleteSavedSearch(id);
+      const success = await savedSearchService.deleteSavedSearch(id);
       if (success) {
         const updated = savedSearches.filter(s => s.id !== id);
         setSavedSearches(updated);
@@ -135,9 +167,9 @@ const Dashboard = () => {
     }
   };
 
-  const isSeller = user?.role === 'seller' || user?.role === 'both';
-  const isBuyer = user?.role === 'buyer' || user?.role === 'both';
-  const isAdmin = user?.role === 'admin';
+  const isSeller = user?.role === 'SELLER' || user?.role === 'BOTH';
+  const isBuyer = user?.role === 'BUYER' || user?.role === 'BOTH';
+  const isAdmin = user?.role === 'ADMIN';
 
   if (loading) {
     return (
@@ -222,7 +254,7 @@ const Dashboard = () => {
                                 <Edit className="w-4 h-4 mr-2" />
                                 Edit
                               </Button>
-                              <Button variant="outline" size="sm" onClick={() => deleteListing(listing.id)}>
+                              <Button variant="outline" size="sm" onClick={() => deleteListing(listing.id.toString())}>
                                 <Trash2 className="w-4 h-4 mr-2" />
                                 Delete
                               </Button>
@@ -263,7 +295,7 @@ const Dashboard = () => {
                           <Button size="sm" className="flex-1" onClick={() => navigate(`/listing/${bike.listing_id || bike.id}`)}>
                             View Details
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => removeFavorite(bike.id, bike.listing_id || bike.id)}>
+                          <Button size="sm" variant="outline" onClick={() => removeFavorite(bike.id.toString(), (bike.listing_id || bike.id).toString())}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>

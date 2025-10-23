@@ -25,7 +25,7 @@ const Listings = () => {
     const loadListings = async () => {
       try {
         setLoading(true);
-        const allListings = listingService.getAllListings();
+        const allListings = await listingService.getAllListings();
         setListings(allListings);
       } catch (error) {
         console.error('Failed to load listings:', error);

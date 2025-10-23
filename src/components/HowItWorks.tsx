@@ -1,4 +1,4 @@
-import { Search, FileCheck, Key, Handshake } from "lucide-react";
+import { Search, FileCheck, Key, MessageCircle } from "lucide-react";
 
 const steps = [
   {
@@ -12,7 +12,7 @@ const steps = [
     description: "Review verified seller information, photos, and service history"
   },
   {
-    icon: Handshake,
+    icon: MessageCircle,
     title: "Connect & Negotiate",
     description: "Message sellers directly and arrange test rides with confidence"
   },

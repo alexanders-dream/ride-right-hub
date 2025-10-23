@@ -4,7 +4,7 @@ export interface User {
   id: number;
   email: string;
   name: string;
-  role: 'buyer' | 'seller' | 'both' | 'admin';
+  role: 'BUYER' | 'SELLER' | 'BOTH' | 'ADMIN';
   created_at: string;
 }
 
@@ -130,7 +130,7 @@ export interface RegisterData {
   email: string;
   password: string;
   name: string;
-  role: 'buyer' | 'seller' | 'both' | 'admin';
+  role: 'BUYER' | 'SELLER' | 'BOTH' | 'ADMIN';
 }
 
 export interface CreateListingData {

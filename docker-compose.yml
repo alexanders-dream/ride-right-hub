@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: motomarket-postgres
+    environment:
+      POSTGRES_DB: motomarket
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - motomarket-network
+
+  redis:
+    image: redis:8.0-alpine
+    container_name: motomarket-redis
+    ports:
+      - "6380:6380"
+    volumes:
+      - redis_data:/data
+    networks:
+      - motomarket-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  motomarket-network:
+    driver: bridge

@@ -6,7 +6,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name: string, role: 'buyer' | 'seller' | 'both' | 'admin') => Promise<void>;
+  signup: (email: string, password: string, firstName: string, lastName: string, role: 'BUYER' | 'SELLER' | 'BOTH' | 'ADMIN') => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -20,26 +20,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing token on mount
-    const storedToken = localStorage.getItem('authToken');
-    if (storedToken) {
-      try {
-        const decoded = userService.verifyToken(storedToken);
-        const userData = userService.getUserById(decoded.userId);
-        
-        if (userData) {
-          setUser(userData);
-          setToken(storedToken);
-        } else {
-          // Token is valid but user doesn't exist
+    const checkAuth = async () => {
+      const storedToken = localStorage.getItem('authToken');
+      if (storedToken) {
+        try {
+          const decoded = userService.verifyToken(storedToken);
+          const userData = await userService.getUserById(decoded.userId);
+          
+          if (userData) {
+            setUser(userData);
+            setToken(storedToken);
+          } else {
+            localStorage.removeItem('authToken');
+          }
+        } catch (error) {
           localStorage.removeItem('authToken');
         }
-      } catch (error) {
-        // Invalid token
-        localStorage.removeItem('authToken');
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+
+    checkAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -57,16 +58,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setToken(userToken);
   };
 
-  const signup = async (email: string, password: string, name: string, role: 'buyer' | 'seller' | 'both' | 'admin') => {
+  const signup = async (email: string, password: string, firstName: string, lastName: string, role: 'BUYER' | 'SELLER' | 'BOTH' | 'ADMIN') => {
     // Create user in database
-    const newUser = await userService.createUser(email, password, name, role);
+    const newUser = await userService.createUser(email, password, firstName, lastName, role);
     
     if (newUser) {
-      // Generate JWT token for immediate login
+      // Token is already set by userService
       const userToken = userService.generateToken(newUser);
-      
-      // Store token
-      localStorage.setItem('authToken', userToken);
       
       // Update context state
       setUser(newUser);
@@ -92,7 +90,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     signup,
     logout,
     isAuthenticated: !!user && !!token,
-    isAdmin: user?.role === 'admin'
+    isAdmin: user?.role === 'ADMIN'
   };
 
   if (isLoading) {

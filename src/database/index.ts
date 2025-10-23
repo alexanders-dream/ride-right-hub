@@ -1,523 +1,450 @@
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { User, Listing, BlogPost, SavedSearch, Message } from '../types/database';
+// Database service that connects to the PostgreSQL backend
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
-// Database instance
-let db: any = null;
-const JWT_SECRET = process.env.JWT_SECRET || 'moto-market-secret-key-change-in-production';
+interface ApiResponse<T> {
+  data?: T;
+  error?: string;
+  status: number;
+}
 
-// Initialize database  
-export async function initializeDatabase() {
-  try {
-    // Dynamically import sql.js to avoid module resolution issues
-    const sqlModule = await import('sql.js');
-    const SQL = sqlModule.default || sqlModule;
-    
-    const sqlJs = await SQL({
-      locateFile: (file) => `https://sql.js.org/dist/${file}`
+interface AuthResponse {
+  token: string;
+  user: User;
+}
+
+interface ListingResponse {
+  listing: Listing;
+}
+
+interface ListingsResponse {
+  listings: Listing[];
+}
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: 'ADMIN' | 'SELLER' | 'BUYER' | 'BOTH';
+  created_at: string;
+  updated_at?: string;
+}
+
+interface Listing {
+  id: number;
+  title: string;
+  make: string;
+  model: string;
+  year: number;
+  mileage: number;
+  price: number;
+  vin: string;
+  location: string;
+  engine_size: number;
+  color: string;
+  transmission: string;
+  description: string;
+  images: string[];
+  seller_id: number;
+  seller_type: 'private' | 'dealer';
+  status: 'active' | 'sold' | 'pending' | 'draft';
+  created_at: string;
+  updated_at?: string;
+  views: number;
+}
+
+interface BlogPost {
+  id: number;
+  title: string;
+  content: string;
+  author_id: number;
+  status: 'published' | 'draft';
+  category: string;
+  created_at: string;
+  updated_at?: string;
+  views: number;
+}
+
+interface Message {
+  id: number;
+  sender_id: number;
+  receiver_id: number;
+  subject: string;
+  content: string;
+  read: boolean;
+  created_at: string;
+}
+
+// Helper function for API calls
+// Rate limiting implementation
+const rateLimitMap = new Map<string, { count: number, lastRequest: number }>();
+const RATE_LIMIT = 100; // Max requests per minute
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute window
+
+async function apiCall<T>(
+  endpoint: string,
+  method?: string,
+  requireAdmin?: boolean
+): Promise<T>;
+async function apiCall<T>(
+  endpoint: string,
+  options?: RequestInit,
+  requireAdmin?: boolean
+): Promise<T>;
+async function apiCall<T>(
+  endpoint: string,
+  methodOrOptions?: string | RequestInit,
+  requireAdmin: boolean = false
+): Promise<T> {
+  // Rate limiting check
+  const ip = 'user-ip'; // In production, this would come from request headers
+  const now = Date.now();
+  const rateLimitData = rateLimitMap.get(ip) || { count: 0, lastRequest: 0 };
+
+  if (now - rateLimitData.lastRequest > RATE_LIMIT_WINDOW) {
+    rateLimitMap.set(ip, { count: 1, lastRequest: now });
+  } else if (rateLimitData.count >= RATE_LIMIT) {
+    throw new Error('Rate limit exceeded. Please try again later.');
+  } else {
+    rateLimitMap.set(ip, { 
+      count: rateLimitData.count + 1, 
+      lastRequest: now 
     });
-    
-    // Create/load database
-    const storedDb = localStorage.getItem('moto-market-db');
-    if (storedDb) {
-      const uInt8Array = new Uint8Array(JSON.parse(storedDb));
-      db = new sqlJs.Database(uInt8Array);
-    } else {
-      db = new sqlJs.Database();
+  }
+
+  // Handle both overloads
+  const options: RequestInit = typeof methodOrOptions === 'string' 
+    ? { method: methodOrOptions } 
+    : methodOrOptions || {};
+  const isAdminRequired = typeof methodOrOptions === 'string' ? requireAdmin : requireAdmin;
+
+  // Audit logging for admin actions
+  if (isAdminRequired) {
+    console.log(`[ADMIN ACTION] ${options.method || 'GET'} ${endpoint}`, {
+      timestamp: new Date().toISOString(),
+      user: localStorage.getItem('userId'),
+      action: `${options.method || 'GET'} ${endpoint}`,
+      payload: options.body
+    });
+  }
+  const token = localStorage.getItem('token');
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  // Verify token contains admin role if required
+  if (isAdminRequired) {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    if (payload.role !== 'ADMIN') {
+      throw new Error('Admin privileges required');
     }
-
-    // Create tables if they don't exist
-    createTables();
-    console.log('Database initialized successfully');
-  } catch (error) {
-    console.error('Database initialization failed:', error);
-    // Fall back to mock database if sql.js fails
-    console.warn('Using fallback database implementation');
-    return initializeFallbackDatabase();
   }
-}
 
-// Fallback implementation using localStorage
-function initializeFallbackDatabase() {
-  const fallbackStorage = {
-    _data: {
-      users: [],
-      listings: [],
-      cart_items: [],
-      favorites: [],
-      blog_posts: [],
-      messages: [],
-      saved_searches: []
-    },
-    
-    run: (sql: string, params?: any[]) => {
-      // Basic mock implementation
-      console.log('Mock SQL execution:', sql, params);
-      return { lastID: Math.floor(Math.random() * 1000) };
-    },
-    
-    prepare: (sql: string) => ({
-      run: (...params: any[]) => ({ lastID: Math.floor(Math.random() * 1000) }),
-      get: (...params: any[]) => null,
-      all: (...params: any[]) => []
-    }),
-    
-    export: () => new Uint8Array([0, 0, 0, 0])
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token && { 'Authorization': `Bearer ${token}` }),
+    ...options.headers,
   };
-  
-  db = fallbackStorage;
-  console.log('Fallback database initialized');
-  return Promise.resolve();
-}
 
-// Save database to localStorage
-function saveDatabase() {
-  if (db) {
-    const data = db.export();
-    localStorage.setItem('moto-market-db', JSON.stringify(Array.from(data)));
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Network error' }));
+    throw new Error(error.error || 'API request failed');
   }
-}
 
-function createTables() {
-  // Users table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      name TEXT NOT NULL,
-      role TEXT NOT NULL CHECK(role IN ('buyer', 'seller', 'both', 'admin')),
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // Motorcycles listings table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS listings (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
-      make TEXT NOT NULL,
-      model TEXT NOT NULL,
-      year INTEGER NOT NULL,
-      mileage INTEGER NOT NULL,
-      price REAL NOT NULL,
-      vin TEXT UNIQUE,
-      location TEXT NOT NULL,
-      engine_size INTEGER NOT NULL,
-      color TEXT NOT NULL,
-      transmission TEXT NOT NULL CHECK(transmission IN ('Manual', 'Automatic', 'Semi-Automatic')),
-      description TEXT,
-      images TEXT, -- JSON array of image URLs
-      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'pending', 'sold')),
-      seller_id INTEGER NOT NULL,
-      seller_type TEXT NOT NULL CHECK(seller_type IN ('dealer', 'private')),
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      views INTEGER DEFAULT 0
-    )
-  `);
-
-  // Cart items table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS cart_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      listing_id INTEGER NOT NULL,
-      added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(user_id, listing_id)
-    )
-  `);
-
-  // Saved favorites table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS favorites (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      listing_id INTEGER NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(user_id, listing_id)
-    )
-  `);
-
-  // Saved searches table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS saved_searches (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      filters TEXT, -- JSON object containing filter criteria
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // Messages table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      sender_id INTEGER NOT NULL,
-      receiver_id INTEGER NOT NULL,
-      listing_id INTEGER,
-      subject TEXT NOT NULL,
-      content TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'unread' CHECK(status IN ('unread', 'read', 'replied')),
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // Blog posts table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS blog_posts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
-      content TEXT NOT NULL,
-      excerpt TEXT,
-      author TEXT NOT NULL,
-      category TEXT,
-      image TEXT,
-      readTime TEXT,
-      status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'published')),
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      published_at DATETIME
-    )
-  `);
+  return response.json();
 }
 
 // User management functions
 export const userService = {
-  async createUser(email: string, password: string, name: string, role: 'buyer' | 'seller' | 'both' | 'admin') {
-    if (!db) throw new Error('Database not initialized');
-    
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
-    const stmt = db.prepare(`
-      INSERT INTO users (email, password, name, role) 
-      VALUES (?, ?, ?, ?)
-    `);
-    
-    stmt.run(email, hashedPassword, name, role);
-    
-    // Get the inserted user
-    const result = db.prepare('SELECT id, email, name, role, created_at FROM users WHERE email = ?').get(email) as User;
-    saveDatabase();
-    return result;
+  async createUser(email: string, password: string, firstName: string, lastName: string, role: string = 'BUYER') {
+    try {
+      const response = await apiCall<AuthResponse>('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          email,
+          password,
+          firstName,
+          lastName,
+          username: email.split('@')[0],
+          role
+        })
+      });
+
+      if (response.token) {
+        localStorage.setItem('token', response.token);
+      }
+
+      return response.user;
+    } catch (error) {
+      console.error('User creation error:', error);
+      throw error;
+    }
   },
 
   async authenticateUser(email: string, password: string) {
-    if (!db) throw new Error('Database not initialized');
-    
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User & { password: string };
-    
-    if (!user) {
-      throw new Error('Invalid credentials');
-    }
+    try {
+      const response = await apiCall<AuthResponse>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
+      });
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    
-    if (!isPasswordValid) {
-      throw new Error('Invalid credentials');
-    }
+      if (response.token) {
+        localStorage.setItem('token', response.token);
+      }
 
-    // Remove password from returned user object
-    const { password: _, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+      return response.user;
+    } catch (error) {
+      console.error('Authentication error:', error);
+      throw error;
+    }
   },
 
-  generateToken(user: User): string {
-    return jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email, 
-        role: user.role 
-      },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+  generateToken(user: any): string {
+    return localStorage.getItem('token') || '';
   },
 
   verifyToken(token: string): { userId: number; email: string; role: string } {
-    return jwt.verify(token, JWT_SECRET) as { userId: number; email: string; role: string };
-  },
-
-  getUserById(id: number): User | null {
     try {
-      if (!db) return null;
-      return db.prepare('SELECT id, email, name, role, created_at FROM users WHERE id = ?').get(id) as User || null;
-    } catch (error) {
-      return null;
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return {
+        userId: payload.userId,
+        email: payload.email,
+        role: payload.role
+      };
+    } catch {
+      throw new Error('Invalid token');
     }
   },
 
-  getAllUsers(): User[] {
+  async getUserById(id: number): Promise<User | null> {
     try {
-      if (!db) return [];
-      return db.prepare('SELECT id, email, name, role, created_at FROM users ORDER BY created_at DESC').all() as User[];
+      return await apiCall<User>(`/users/${id}`, 'GET');
     } catch (error) {
-      return [];
+      console.error(`Failed to fetch user ${id}:`, error);
+      throw new Error(`Failed to fetch user ${id}`);
     }
   },
 
-  deleteUser(id: number): boolean {
+  async getAllUsers(): Promise<User[]> {
     try {
-      if (!db) return false;
-      const stmt = db.prepare('DELETE FROM users WHERE id = ?');
-      stmt.run(id);
-      saveDatabase();
-      return true;
+      const response = await apiCall<User[]>('/users', 'GET');
+      if (!Array.isArray(response)) {
+        throw new Error('Invalid response format for users');
+      }
+      return response;
     } catch (error) {
-      console.error('Error deleting user:', error);
-      return false;
+      console.error('Failed to fetch users:', error);
+      throw new Error('Failed to fetch users');
+    }
+  },
+
+  async deleteUser(id: number): Promise<boolean> {
+    try {
+      return await apiCall<boolean>(`/users/${id}`, 'DELETE');
+    } catch (error) {
+      console.error(`Failed to delete user ${id}:`, error);
+      throw new Error(`Failed to delete user ${id}`);
     }
   }
 };
 
 // Listings management functions
+// Audit logging decorator
+function withAuditLog<T extends (...args: any[]) => Promise<any>>(
+  serviceName: string,
+  fn: T
+): T {
+  return (async (...args: any[]) => {
+    try {
+      const result = await fn(...args);
+      console.log(`[AUDIT] ${serviceName}.${fn.name} success`, {
+        timestamp: new Date().toISOString(),
+        args,
+        result
+      });
+      return result;
+    } catch (error) {
+      console.error(`[AUDIT] ${serviceName}.${fn.name} failed`, {
+        timestamp: new Date().toISOString(),
+        args,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
+  }) as T;
+}
+
 export const listingService = {
-  createListing(listingData: Omit<Listing, 'id' | 'created_at' | 'updated_at' | 'views'>): Listing | null {
+  async createListing(listingData: any) {
     try {
-      if (!db) throw new Error('Database not initialized');
-      
-      const stmt = db.prepare(`
-        INSERT INTO listings (
-          title, make, model, year, mileage, price, vin, location, 
-          engine_size, color, transmission, description, images, status, 
-          seller_id, seller_type
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      
-      const result = stmt.run(
-        listingData.title, listingData.make, listingData.model, listingData.year,
-        listingData.mileage, listingData.price, listingData.vin, listingData.location,
-        listingData.engine_size, listingData.color, listingData.transmission,
-        listingData.description, JSON.stringify(listingData.images || []),
-        listingData.status || 'active', listingData.seller_id, listingData.seller_type
-      );
+      const response = await apiCall<ListingResponse>('/listings', {
+        method: 'POST',
+        body: JSON.stringify(listingData)
+      });
+      return response.listing;
+    } catch (error) {
+      console.error('Listing creation error:', error);
+      throw new Error('Failed to create listing');
+    }
+  },
 
-      const listing = db.prepare('SELECT * FROM listings WHERE ROWID = ?').get(result.insertId) as any || null;
-      if (listing && listing.images) {
-        listing.images = typeof listing.images === 'string' ? JSON.parse(listing.images) : listing.images;
+  async getAllListings(): Promise<Listing[]> {
+    try {
+      const response = await apiCall<Listing[]>('/listings', 'GET');
+      if (!Array.isArray(response)) {
+        throw new Error('Invalid response format for listings');
       }
-      
-      saveDatabase();
-      return listing;
+      return response;
     } catch (error) {
-      console.error('Error creating listing:', error);
-      return null;
+      console.error('Listings fetch error:', error);
+      throw new Error('Failed to fetch listings');
     }
   },
 
-  getAllListings(): Listing[] {
+  async getListingById(id: string): Promise<Listing | null> {
     try {
-      if (!db) return [];
-      const listings = db.prepare('SELECT * FROM listings ORDER BY created_at DESC').all() as any[];
-      return listings.map(listing => ({
-        ...listing,
-        images: typeof listing.images === 'string' ? JSON.parse(listing.images) : listing.images
-      }));
+      return await apiCall<Listing>(`/listings/${id}`, 'GET');
     } catch (error) {
-      console.error('Error fetching listings:', error);
-      return [];
+      console.error(`Failed to fetch listing ${id}:`, error);
+      throw new Error(`Failed to fetch listing ${id}`);
     }
   },
 
-  getListingById(id: number): Listing | null {
+  async getListingsBySeller(sellerId: number): Promise<Listing[]> {
     try {
-      if (!db) return null;
-      const listing = db.prepare('SELECT * FROM listings WHERE id = ?').get(id) as any || null;
-      if (listing && listing.images) {
-        listing.images = typeof listing.images === 'string' ? JSON.parse(listing.images) : listing.images;
+      const response = await apiCall<Listing[]>(`/listings?sellerId=${sellerId}`, 'GET');
+      if (!Array.isArray(response)) {
+        throw new Error('Invalid response format for seller listings');
       }
-      return listing;
+      return response;
     } catch (error) {
-      console.error('Error fetching listing:', error);
-      return null;
+      console.error(`Failed to fetch listings for seller ${sellerId}:`, error);
+      throw new Error(`Failed to fetch listings for seller ${sellerId}`);
     }
   },
 
-  getListingsBySeller(sellerId: number): Listing[] {
+  async deleteListing(id: number): Promise<boolean> {
     try {
-      if (!db) return [];
-      const listings = db.prepare('SELECT * FROM listings WHERE seller_id = ? ORDER BY created_at DESC').all(sellerId) as any[];
-      return listings.map(listing => ({
-        ...listing,
-        images: typeof listing.images === 'string' ? JSON.parse(listing.images) : listing.images
-      }));
+      return await apiCall<boolean>(`/listings/${id}`, 'DELETE');
     } catch (error) {
-      console.error('Error fetching seller listings:', error);
-      return [];
+      console.error(`Failed to delete listing ${id}:`, error);
+      throw new Error(`Failed to delete listing ${id}`);
     }
   },
 
-  deleteListing(id: number): boolean {
+  async updateListingViews(id: number): Promise<boolean> {
     try {
-      if (!db) return false;
-      const stmt = db.prepare('DELETE FROM listings WHERE id = ?');
-      stmt.run(id);
-      saveDatabase();
+      // Views are automatically updated when fetching a listing, so this is redundant
+      // Keeping the function for compatibility but making it a no-op
       return true;
     } catch (error) {
-      console.error('Error deleting listing:', error);
-      return false;
-    }
-  },
-
-  updateListingViews(id: number): boolean {
-    try {
-      if (!db) return false;
-      const stmt = db.prepare('UPDATE listings SET views = views + 1 WHERE id = ?');
-      stmt.run(id);
-      saveDatabase();
-      return true;
-    } catch (error) {
-      console.error('Error updating listing views:', error);
-      return false;
+      console.error(`Failed to update views for listing ${id}:`, error);
+      throw new Error(`Failed to update views for listing ${id}`);
     }
   }
 };
 
 // Cart management functions
 export const cartService = {
-  getCartItems(userId: number): any[] {
-    try {
-      if (!db) return [];
-      const items = db.prepare(`
-        SELECT ci.id, ci.user_id, ci.listing_id, ci.added_at,
-               l.id as listing_id, l.title, l.make, l.model, l.year, l.price, l.mileage, l.location, l.images
-        FROM cart_items ci 
-        JOIN listings l ON ci.listing_id = l.id 
-        WHERE ci.user_id = ?
-      `).all(userId) as any[];
-      
-      return items.map(item => ({
-        id: item.id,
-        user_id: item.user_id,
-        listing_id: item.listing_id,
-        added_at: item.added_at,
-        listing: {
-          id: item.listing_id,
-          title: item.title,
-          make: item.make,
-          model: item.model,
-          year: item.year,
-          price: item.price,
-          mileage: item.mileage,
-          location: item.location,
-          images: typeof item.images === 'string' ? JSON.parse(item.images) : item.images
+    async getCartItems() {
+        try {
+            const response = await apiCall('/cart');
+            return response;
+        } catch (error) {
+            console.error('Cart items fetch error:', error);
+            return [];
         }
-      }));
-    } catch (error) {
-      console.error('Error fetching cart items:', error);
-      return [];
-    }
-  },
+    },
 
-  addToCart(userId: number, listingId: number): boolean {
-    try {
-      if (!db) return false;
-      const stmt = db.prepare(`
-        INSERT OR IGNORE INTO cart_items (user_id, listing_id) 
-        VALUES (?, ?)
-      `);
-      stmt.run(userId, listingId);
-      saveDatabase();
-      return true;
-    } catch (error) {
-      console.error('Error adding to cart:', error);
-      return false;
-    }
-  },
+    async addToCart(listingId: string) {
+        try {
+            await apiCall('/cart', {
+                method: 'POST',
+                body: JSON.stringify({ listingId }),
+            });
+            return true;
+        } catch (error) {
+            console.error('Add to cart error:', error);
+            return false;
+        }
+    },
 
-  removeFromCart(userId: number, listingId: number): boolean {
-    try {
-      if (!db) return false;
-      const stmt = db.prepare('DELETE FROM cart_items WHERE user_id = ? AND listing_id = ?');
-      stmt.run(userId, listingId);
-      saveDatabase();
-      return true;
-    } catch (error) {
-      console.error('Error removing from cart:', error);
-      return false;
-    }
-  },
+    async removeFromCart(listingId: string) {
+        try {
+            await apiCall(`/cart/${listingId}`, {
+                method: 'DELETE',
+            });
+            return true;
+        } catch (error) {
+            console.error('Remove from cart error:', error);
+            return false;
+        }
+    },
 
-  clearCart(userId: number): boolean {
-    try {
-      if (!db) return false;
-      const stmt = db.prepare('DELETE FROM cart_items WHERE user_id = ?');
-      stmt.run(userId);
-      saveDatabase();
-      return true;
-    } catch (error) {
-      console.error('Error clearing cart:', error);
-      return false;
-    }
-  }
+    async clearCart() {
+        try {
+            await apiCall('/cart', {
+                method: 'DELETE',
+            });
+            return true;
+        } catch (error) {
+            console.error('Clear cart error:', error);
+            return false;
+        }
+    },
 };
+
 
 // Favorites management functions
 export const favoriteService = {
-  addToFavorites(userId: number, listingId: number): boolean {
+  async addToFavorites(userId: number, listingId: string) {
     try {
-      if (!db) return false;
-      const stmt = db.prepare(`
-        INSERT OR IGNORE INTO favorites (user_id, listing_id) 
-        VALUES (?, ?)
-      `);
-      stmt.run(userId, listingId);
-      saveDatabase();
+      const response = await apiCall(`/favorites/${listingId}`, {
+        method: 'POST'
+      });
       return true;
     } catch (error) {
-      console.error('Error adding to favorites:', error);
+      console.error('Add to favorites error:', error);
       return false;
     }
   },
 
-  removeFromFavorites(userId: number, listingId: number): boolean {
+  async removeFromFavorites(userId: number, listingId: string) {
     try {
-      if (!db) return false;
-      const stmt = db.prepare('DELETE FROM favorites WHERE user_id = ? AND listing_id = ?');
-      stmt.run(userId, listingId);
-      saveDatabase();
+      await apiCall(`/favorites/${listingId}`, {
+        method: 'DELETE'
+      });
       return true;
     } catch (error) {
-      console.error('Error removing from favorites:', error);
+      console.error('Remove from favorites error:', error);
       return false;
     }
   },
 
-  getFavorites(userId: number): any[] {
+  async getFavorites() {
     try {
-      if (!db) return [];
-      const items = db.prepare(`
-        SELECT f.*, l.title, l.make, l.model, l.year, l.price, l.images
-        FROM favorites f 
-        JOIN listings l ON f.listing_id = l.id 
-        WHERE f.user_id = ?
-      `).all(userId) as any[];
-      
-      return items.map(item => ({
-        ...item,
-        images: typeof item.images === 'string' ? JSON.parse(item.images) : item.images
-      }));
+      const response = await apiCall('/favorites');
+      return response;
     } catch (error) {
-      console.error('Error fetching favorite items:', error);
+      console.error('Favorites fetch error:', error);
       return [];
     }
   },
 
-  getUserFavorites(userId: number): any[] {
-    return this.getFavorites(userId);
+  async getUserFavorites() {
+    return this.getFavorites();
   },
 
-  isFavorite(userId: number, listingId: number): boolean {
+  async isFavorite(userId: number, listingId: string) {
     try {
-      if (!db) return false;
-      const item = db.prepare('SELECT id FROM favorites WHERE user_id = ? AND listing_id = ?').get(userId, listingId);
-      return !!item;
+      const favorites = await this.getFavorites(userId);
+      return favorites.some((fav: any) => fav.listingId === listingId);
     } catch (error) {
-      console.error('Error checking favorite status:', error);
+      console.error('Check favorite error:', error);
       return false;
     }
   }
@@ -525,220 +452,193 @@ export const favoriteService = {
 
 // Saved Searches management functions
 export const savedSearchService = {
-  createSavedSearch(userId: number, searchName: string, filters: SavedSearch['filters']): boolean {
-    try {
-      if (!db) return false;
-      const stmt = db.prepare(`
-        INSERT INTO saved_searches (user_id, name, filters) 
-        VALUES (?, ?, ?)
-      `);
-      stmt.run(userId, searchName, JSON.stringify(filters));
-      saveDatabase();
-      return true;
-    } catch (error) {
-      console.error('Error creating saved search:', error);
-      return false;
-    }
-  },
+    async createSavedSearch(searchName: string, filters: any) {
+        try {
+            const response = await apiCall('/saved-searches', {
+                method: 'POST',
+                body: JSON.stringify({ name: searchName, filters }),
+            });
+            return response;
+        } catch (error) {
+            console.error('Create saved search error:', error);
+            return null;
+        }
+    },
 
-  getSavedSearches(userId: number): SavedSearch[] {
-    try {
-      if (!db) return [];
-      const searches = db.prepare('SELECT * FROM saved_searches WHERE user_id = ? ORDER BY created_at DESC').all(userId) as any[];
-      return searches.map(search => ({
-        ...search,
-        filters: JSON.parse(search.filters)
-      }));
-    } catch (error) {
-      console.error('Error fetching saved searches:', error);
-      return [];
-    }
-  },
+    async getSavedSearches() {
+        try {
+            const response = await apiCall('/saved-searches');
+            return response;
+        } catch (error) {
+            console.error('Saved searches fetch error:', error);
+            return [];
+        }
+    },
 
-  deleteSavedSearch(id: number): boolean {
-    try {
-      if (!db) return false;
-      const stmt = db.prepare('DELETE FROM saved_searches WHERE id = ?');
-      stmt.run(id);
-      saveDatabase();
-      return true;
-    } catch (error) {
-      console.error('Error deleting saved search:', error);
-      return false;
-    }
-  }
+    async deleteSavedSearch(id: string) {
+        try {
+            await apiCall(`/saved-searches/${id}`, {
+                method: 'DELETE',
+            });
+            return true;
+        } catch (error) {
+            console.error('Delete saved search error:', error);
+            return false;
+        }
+    },
 };
 
 // Messages management functions
 export const messageService = {
-  sendMessage(senderId: number, receiverId: number, listingId: number | null, subject: string, content: string): boolean {
-    try {
-      if (!db) return false;
-      const stmt = db.prepare(`
-        INSERT INTO messages (sender_id, receiver_id, listing_id, subject, content, status) 
-        VALUES (?, ?, ?, ?, ?, ?)
-      `);
-      stmt.run(senderId, receiverId, listingId, subject, content, 'unread');
-      saveDatabase();
-      return true;
-    } catch (error) {
-      console.error('Error sending message:', error);
-      return false;
-    }
-  },
+    async sendMessage(receiverId: number, listingId: string | null, subject: string, content: string) {
+        try {
+            const response = await apiCall('/messages', {
+                method: 'POST',
+                body: JSON.stringify({ receiverId, listingId, subject, content }),
+            });
+            return response;
+        } catch (error) {
+            console.error('Send message error:', error);
+            return null;
+        }
+    },
 
-  getMessages(userId: number): Message[] {
-    try {
-      if (!db) return [];
-      return db.prepare(`
-        SELECT * FROM messages 
-        WHERE sender_id = ? OR receiver_id = ? 
-        ORDER BY created_at DESC
-      `).all(userId, userId) as Message[];
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-      return [];
-    }
-  },
+    async getMessages() {
+        try {
+            const response = await apiCall('/messages');
+            return response;
+        } catch (error) {
+            console.error('Messages fetch error:', error);
+            return [];
+        }
+    },
 
-  getUserMessages(userId: number): Message[] {
-    return this.getMessages(userId);
-  },
+    async markAsRead(messageId: string) {
+        try {
+            await apiCall(`/messages/${messageId}/read`, {
+                method: 'PATCH',
+            });
+            return true;
+        } catch (error) {
+            console.error('Mark as read error:', error);
+            return false;
+        }
+    },
 
-  markAsRead(messageId: number): boolean {
-    try {
-      if (!db) return false;
-      const stmt = db.prepare('UPDATE messages SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-      stmt.run('read', messageId);
-      saveDatabase();
-      return true;
-    } catch (error) {
-      console.error('Error marking message as read:', error);
-      return false;
-    }
-  },
+    async deleteMessage(messageId: string) {
+        try {
+            await apiCall(`/messages/${messageId}`, {
+                method: 'DELETE',
+            });
+            return true;
+        } catch (error) {
+            console.error('Delete message error:', error);
+            return false;
+        }
+    },
 
-  deleteMessage(messageId: number): boolean {
-    try {
-      if (!db) return false;
-      const stmt = db.prepare('DELETE FROM messages WHERE id = ?');
-      stmt.run(messageId);
-      saveDatabase();
-      return true;
-    } catch (error) {
-      console.error('Error deleting message:', error);
-      return false;
-    }
-  }
+    async getUserMessages() {
+        try {
+            const response = await apiCall('/messages');
+            return response;
+        } catch (error) {
+            console.error('User messages fetch error:', error);
+            return [];
+        }
+    },
 };
 
 // Blog management functions
 export const blogService = {
-  createBlogPost(postData: Omit<BlogPost, 'id' | 'created_at' | 'updated_at' | 'published_at'>, status: 'draft' | 'published' = 'draft'): BlogPost | null {
-    try {
-      if (!db) throw new Error('Database not initialized');
-      
-      const stmt = db.prepare(`
-        INSERT INTO blog_posts (title, content, excerpt, author, category, image, readTime, status, published_at) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      
-      const publishedAt = status === 'published' ? new Date().toISOString() : null;
-      
-      stmt.run(
-        postData.title,
-        postData.content,
-        postData.excerpt || '',
-        postData.author,
-        postData.category,
-        postData.image,
-        postData.readTime,
-        status,
-        publishedAt
-      );
+    async createBlogPost(postData: any, status: 'draft' | 'published' = 'draft') {
+        try {
+            const response = await apiCall('/blog', {
+                method: 'POST',
+                body: JSON.stringify({ ...postData, status }),
+            });
+            return response;
+        } catch (error) {
+            console.error('Blog post creation error:', error);
+            return null;
+        }
+    },
 
-      const post = db.prepare('SELECT * FROM blog_posts WHERE ROWID = last_insert_rowid()').get() as BlogPost || null;
-      saveDatabase();
-      return post;
-    } catch (error) {
-      console.error('Error creating blog post:', error);
-      return null;
-    }
-  },
+    async getAllBlogPosts() {
+        try {
+            const response = await apiCall('/blog');
+            return response;
+        } catch (error) {
+            console.error('Blog posts fetch error:', error);
+            return [];
+        }
+    },
 
-  getAllBlogPosts(): BlogPost[] {
-    try {
-      if (!db) return [];
-      return db.prepare('SELECT * FROM blog_posts ORDER BY created_at DESC').all() as BlogPost[];
-    } catch (error) {
-      console.error('Error fetching blog posts:', error);
-      return [];
-    }
-  },
+    async updateBlogPost(id: string, updateData: any) {
+        try {
+            await apiCall(`/blog/${id}`, {
+                method: 'PATCH',
+                body: JSON.stringify(updateData),
+            });
+            return true;
+        } catch (error) {
+            console.error('Blog post update error:', error);
+            return false;
+        }
+    },
 
-  updateBlogPost(id: number, updateData: Partial<BlogPost>): boolean {
-    try {
-      if (!db) return false;
-      
-      const fields = Object.keys(updateData).filter(key => 
-        key !== 'id' && key !== 'created_at' && key !== 'published_at'
-      );
-      
-      if (fields.length === 0) return false;
-      
-      const setClause = fields.map(field => `${field} = ?`).join(', ');
-      const values = fields.map(field => updateData[field as keyof Partial<BlogPost>]);
-      
-      const stmt = db.prepare(`UPDATE blog_posts SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`);
-      stmt.run(...values, id);
-      saveDatabase();
-      return true;
-    } catch (error) {
-      console.error('Error updating blog post:', error);
-      return false;
-    }
-  },
+    async deleteBlogPost(id: string) {
+        try {
+            await apiCall(`/blog/${id}`, {
+                method: 'DELETE',
+            });
+            return true;
+        } catch (error) {
+            console.error('Blog post deletion error:', error);
+            return false;
+        }
+    },
 
-  deleteBlogPost(id: number): boolean {
-    try {
-      if (!db) return false;
-      const stmt = db.prepare('DELETE FROM blog_posts WHERE id = ?');
-      stmt.run(id);
-      saveDatabase();
-      return true;
-    } catch (error) {
-      console.error('Error deleting blog post:', error);
-      return false;
-    }
-  },
+    async getBlogPostById(id: string) {
+        try {
+            const response = await apiCall(`/blog/${id}`);
+            return response;
+        } catch (error) {
+            console.error('Blog post fetch error:', error);
+            return null;
+        }
+    },
 
-  getBlogPostById(id: number): BlogPost | null {
-    try {
-      if (!db) return null;
-      return db.prepare('SELECT * FROM blog_posts WHERE id = ?').get(id) as BlogPost || null;
-    } catch (error) {
-      console.error('Error fetching blog post:', error);
-      return null;
-    }
-  },
+    async getPublishedBlogPosts() {
+        try {
+            const response = await apiCall('/blog/published');
+            return response;
+        } catch (error) {
+            console.error('Published blog posts fetch error', error);
+            return [];
+        }
+    },
 
-  getPublishedBlogPosts(): BlogPost[] {
-    try {
-      if (!db) return [];
-      return db.prepare('SELECT * FROM blog_posts WHERE status = ? ORDER BY published_at DESC, created_at DESC').all('published') as BlogPost[];
-    } catch (error) {
-      console.error('Error fetching published blog posts:', error);
-      return [];
-    }
-  },
-
-  getBlogPostsByCategory(category: string): BlogPost[] {
-    try {
-      if (!db) return [];
-      return db.prepare('SELECT * FROM blog_posts WHERE category = ? AND status = ? ORDER BY published_at DESC, created_at DESC').all(category, 'published') as BlogPost[];
-    } catch (error) {
-      console.error('Error fetching blog posts by category:', error);
-      return [];
-    }
-  }
+    async getBlogPostsByCategory(category: string) {
+        try {
+            const response = await apiCall(`/blog/category/${category}`);
+            return response;
+        } catch (error) {
+            console.error('Blog posts by category fetch error:', error);
+            return [];
+        }
+    },
 };
+
+
+// Initialize function - now just sets up the API connection
+export async function initializeDatabase() {
+  try {
+    // Test API connection
+    const response = await apiCall('/health');
+    console.log('Database (API) connection established:', response);
+    return true;
+  } catch (error) {
+    console.error('Database (API) connection failed:', error);
+    return false;
+  }
+}

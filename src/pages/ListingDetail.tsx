@@ -43,7 +43,7 @@ const ListingDetail = () => {
         }
 
         const listingId = parseInt(id);
-        const fetchedListing = listingService.getListingById(listingId);
+        const fetchedListing = await listingService.getListingById(listingId);
         
         if (!fetchedListing) {
           throw new Error("Listing not found");
@@ -52,11 +52,11 @@ const ListingDetail = () => {
         setListing(fetchedListing);
         
         // Update view count
-        listingService.updateListingViews(listingId);
+        await listingService.updateListingViews(listingId);
         
         // Check if saved (for authenticated users)
         if (user) {
-          const saved = favoriteService.isFavorite(user.id, listingId);
+          const saved = await favoriteService.isFavorite(user.id, listingId);
           setIsSaved(saved);
         }
       } catch (error) {
@@ -87,7 +87,7 @@ const ListingDetail = () => {
     }
 
     try {
-      const success = cartService.addToCart(user.id, listing.id);
+      const success = await cartService.addToCart(listing.id);
       
       if (success) {
         addToCart({
@@ -132,7 +132,7 @@ const ListingDetail = () => {
 
     try {
       if (isSaved) {
-        const success = favoriteService.removeFromFavorites(user.id, listing.id);
+        const success = await favoriteService.removeFromFavorites(user.id, listing.id);
         if (success) {
           setIsSaved(false);
           toast({
@@ -141,7 +141,7 @@ const ListingDetail = () => {
           });
         }
       } else {
-        const success = favoriteService.addToFavorites(user.id, listing.id);
+        const success = await favoriteService.addToFavorites(user.id, listing.id);
         if (success) {
           setIsSaved(true);
           toast({

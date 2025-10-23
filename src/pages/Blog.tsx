@@ -22,7 +22,7 @@ const Blog = () => {
     const loadBlogPosts = async () => {
       try {
         setLoading(true);
-        const posts = blogService.getPublishedBlogPosts();
+        const posts = await blogService.getPublishedBlogPosts();
         setBlogPosts(posts);
         setFilteredPosts(posts);
       } catch (error) {
@@ -41,12 +41,16 @@ const Blog = () => {
   }, [toast]);
 
   useEffect(() => {
-    if (selectedCategory === "All") {
-      setFilteredPosts(blogPosts);
-    } else {
-      const categoryPosts = blogService.getBlogPostsByCategory(selectedCategory);
-      setFilteredPosts(categoryPosts);
-    }
+    const filterPosts = async () => {
+      if (selectedCategory === "All") {
+        setFilteredPosts(blogPosts);
+      } else {
+        const categoryPosts = await blogService.getBlogPostsByCategory(selectedCategory);
+        setFilteredPosts(categoryPosts);
+      }
+    };
+    
+    filterPosts();
   }, [selectedCategory, blogPosts]);
 
   const categories = ["All", "Buying Guide", "Selling Tips", "Maintenance", "News", "Market Analysis"];
