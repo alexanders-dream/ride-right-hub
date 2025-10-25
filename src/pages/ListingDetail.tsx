@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Heart, Share2, Flag, MapPin, Gauge, Calendar, Palette, Cog, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,64 +14,131 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useCart } from "@/contexts/CartContext";
 import { cn } from "@/lib/utils";
+import { apiClient } from "@/services/api-client";
 
-// Mock data - in real app this would come from API
-const mockListing = {
-  id: 1,
-  year: 2022,
-  make: "Harley-Davidson",
-  model: "Street Glide",
-  price: 24999,
-  mileage: 3200,
-  location: "Los Angeles, CA",
-  engineSize: 1868,
-  color: "Black",
-  transmission: "6-Speed Manual",
-  vin: "1HD1KEM19NB123456",
-  description: "This beautiful 2022 Harley-Davidson Street Glide is in excellent condition with only 3,200 miles. Always garage-kept and regularly maintained. Features include upgraded exhaust, custom seat, and premium sound system. Non-smoking owner, no accidents. All service records available.",
-  images: [
-    "/placeholder.svg",
-    "/placeholder.svg",
-    "/placeholder.svg",
-    "/placeholder.svg",
-    "/placeholder.svg",
-    "/placeholder.svg",
-  ],
-  seller: {
-    name: "John Rider",
-    rating: 4.8,
-    reviewCount: 24,
-    location: "Los Angeles, CA",
-    memberSince: "2019",
-    totalListings: 3,
-  },
+// Interface for listing data from API
+interface Listing {
+  id: string;
+  year: number;
+  make: string;
+  model: string;
+  price: number;
+  mileage: number;
+  location: string;
+  engineSize: number;
+  color: string;
+  transmission?: string;
+  vin?: string;
+  description: string;
+  sellerType: "dealer" | "private";
+  status: string;
+  userId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Default seller info (will be enhanced with real user data in future)
+const defaultSeller = {
+  name: "Seller",
+  rating: 4.5,
+  reviewCount: 0,
+  location: "Unknown",
+  memberSince: "2024",
+  totalListings: 1,
 };
 
 const ListingDetail = () => {
   const { id } = useParams();
   const { addToCart, cartItems } = useCart();
+  const [listing, setListing] = useState<Listing | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
-  const isInCart = cartItems.some(item => item.id === mockListing.id);
+  // Fetch listing data from API
+  useEffect(() => {
+    const fetchListing = async () => {
+      if (!id) {
+        setError('Listing ID is required');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+        const response = await apiClient.getListingById(id);
+        setListing(response.listing);
+      } catch (err) {
+        console.error('Failed to fetch listing:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load listing');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchListing();
+  }, [id]);
+
+  const isInCart = listing ? cartItems.some(item => item.id === parseInt(listing.id.replace(/[^0-9]/g, '').slice(0, 8) || '1', 10)) : false;
 
   const handleAddToCart = () => {
+    if (!listing) return;
+
     addToCart({
-      id: mockListing.id,
-      image: mockListing.images[0],
-      year: mockListing.year,
-      make: mockListing.make,
-      model: mockListing.model,
-      price: mockListing.price,
-      mileage: mockListing.mileage,
-      location: mockListing.location,
-      sellerType: "dealer",
-      engineSize: mockListing.engineSize,
-      color: mockListing.color,
+      id: parseInt(listing.id.replace(/[^0-9]/g, '').slice(0, 8) || '1', 10),
+      image: "/placeholder.svg",
+      year: listing.year,
+      make: listing.make,
+      model: listing.model,
+      price: listing.price,
+      mileage: listing.mileage,
+      location: listing.location,
+      sellerType: listing.sellerType,
+      engineSize: listing.engineSize,
+      color: listing.color,
     });
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading listing...</p>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !listing) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-destructive mb-2">Listing Not Found</h2>
+              <p className="text-muted-foreground">{error || 'The listing you are looking for does not exist.'}</p>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -82,24 +149,24 @@ const ListingDetail = () => {
           {/* Main Content - 2 columns */}
           <div className="lg:col-span-2 space-y-6">
             {/* Image Gallery */}
-            <ImageGallery images={mockListing.images} />
+            <ImageGallery images={["/placeholder.svg"]} />
 
             {/* Title and Price */}
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <div className="flex items-center gap-3 mb-2">
                   <h1 className="text-3xl font-bold">
-                    {mockListing.year} {mockListing.make} {mockListing.model}
+                    {listing.year} {listing.make} {listing.model}
                   </h1>
-                  <Badge variant="secondary">{mockListing.engineSize}cc</Badge>
+                  <Badge variant="secondary">{listing.engineSize}cc</Badge>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <MapPin className="h-4 w-4" />
-                  <span>{mockListing.location}</span>
+                  <span>{listing.location}</span>
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-3xl font-bold text-primary mb-3">${mockListing.price.toLocaleString()}</div>
+                <div className="text-3xl font-bold text-primary mb-3">KSh {listing.price.toLocaleString()}</div>
                 <div className="flex gap-2">
                   <Button 
                     variant="ghost" 
@@ -143,28 +210,28 @@ const ListingDetail = () => {
                 <Gauge className="h-5 w-5 text-primary" />
                 <div>
                   <div className="text-sm text-muted-foreground">Mileage</div>
-                  <div className="font-semibold">{mockListing.mileage.toLocaleString()} mi</div>
+                  <div className="font-semibold">{listing.mileage.toLocaleString()} mi</div>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
                 <Calendar className="h-5 w-5 text-primary" />
                 <div>
                   <div className="text-sm text-muted-foreground">Year</div>
-                  <div className="font-semibold">{mockListing.year}</div>
+                  <div className="font-semibold">{listing.year}</div>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
                 <Palette className="h-5 w-5 text-primary" />
                 <div>
                   <div className="text-sm text-muted-foreground">Color</div>
-                  <div className="font-semibold">{mockListing.color}</div>
+                  <div className="font-semibold">{listing.color}</div>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
                 <Cog className="h-5 w-5 text-primary" />
                 <div>
                   <div className="text-sm text-muted-foreground">Engine</div>
-                  <div className="font-semibold">{mockListing.engineSize}cc</div>
+                  <div className="font-semibold">{listing.engineSize}cc</div>
                 </div>
               </div>
             </div>
@@ -174,7 +241,7 @@ const ListingDetail = () => {
             {/* Description */}
             <div>
               <h2 className="text-xl font-semibold mb-3">Description</h2>
-              <p className="text-muted-foreground leading-relaxed">{mockListing.description}</p>
+              <p className="text-muted-foreground leading-relaxed">{listing.description}</p>
             </div>
 
             <Separator />
@@ -185,35 +252,35 @@ const ListingDetail = () => {
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Make</span>
-                  <span className="font-medium">{mockListing.make}</span>
+                  <span className="font-medium">{listing.make}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Model</span>
-                  <span className="font-medium">{mockListing.model}</span>
+                  <span className="font-medium">{listing.model}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Year</span>
-                  <span className="font-medium">{mockListing.year}</span>
+                  <span className="font-medium">{listing.year}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Mileage</span>
-                  <span className="font-medium">{mockListing.mileage.toLocaleString()} mi</span>
+                  <span className="font-medium">{listing.mileage.toLocaleString()} mi</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Engine Size</span>
-                  <span className="font-medium">{mockListing.engineSize}cc</span>
+                  <span className="font-medium">{listing.engineSize}cc</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Transmission</span>
-                  <span className="font-medium">{mockListing.transmission}</span>
+                  <span className="font-medium">{listing.transmission || "Not specified"}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Color</span>
-                  <span className="font-medium">{mockListing.color}</span>
+                  <span className="font-medium">{listing.color}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">VIN</span>
-                  <span className="font-medium text-xs">{mockListing.vin}</span>
+                  <span className="font-medium text-xs">{listing.vin || "Not specified"}</span>
                 </div>
               </div>
             </div>
@@ -222,10 +289,10 @@ const ListingDetail = () => {
           {/* Sidebar - 1 column */}
           <div className="space-y-6">
             <SellerInfo 
-              {...mockListing.seller} 
+              {...defaultSeller} 
               onContactSeller={() => setContactDialogOpen(true)}
             />
-            <FinancingCalculator price={mockListing.price} />
+            <FinancingCalculator price={listing.price} />
           </div>
         </div>
       </div>
@@ -234,18 +301,18 @@ const ListingDetail = () => {
       <ContactSellerDialog
         open={contactDialogOpen}
         onOpenChange={setContactDialogOpen}
-        sellerName={mockListing.seller.name}
-        listingTitle={`${mockListing.year} ${mockListing.make} ${mockListing.model}`}
+        sellerName={defaultSeller.name}
+        listingTitle={`${listing.year} ${listing.make} ${listing.model}`}
       />
       <ReportListingDialog
         open={reportDialogOpen}
         onOpenChange={setReportDialogOpen}
-        listingId={mockListing.id}
+        listingId={parseInt(listing.id.replace(/[^0-9]/g, '').slice(0, 8) || '1', 10)}
       />
       <ShareDialog
         open={shareDialogOpen}
         onOpenChange={setShareDialogOpen}
-        title={`${mockListing.year} ${mockListing.make} ${mockListing.model}`}
+        title={`${listing.year} ${listing.make} ${listing.model}`}
         url={window.location.href}
       />
 

@@ -1,0 +1,75 @@
+{
+  "name": "pesa-inter-frontend",
+  "version": "1.0.0",
+  "description": "PESA-INTER Package - Frontend React Components for PesaPal Integration",
+  "main": "index.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "pesapal",
+    "payment",
+    "react",
+    "typescript",
+    "components",
+    "mpesa",
+    "kenya"
+  ],
+  "author": "PESA-INTER Package",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "dependencies": {
+    "lucide-react": "^0.294.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "typescript": "^5.2.2",
+    "eslint": "^8.54.0",
+    "@typescript-eslint/eslint-plugin": "^6.12.0",
+    "@typescript-eslint/parser": "^6.12.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0"
+  },
+  "files": [
+    "dist",
+    "components",
+    "pages",
+    "hooks",
+    "types",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./components/PaymentForm": {
+      "import": "./dist/components/PaymentForm.js",
+      "require": "./dist/components/PaymentForm.js"
+    },
+    "./pages/PaymentPage": {
+      "import": "./dist/pages/PaymentPage.js",
+      "require": "./dist/pages/PaymentPage.js"
+    }
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/pesa-inter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/pesa-inter/issues"
+  },
+  "homepage": "https://github.com/your-username/pesa-inter#readme"
+}

@@ -1,0 +1,66 @@
+{
+  "name": "pesa-inter",
+  "version": "1.0.0",
+  "description": "Complete PesaPal payment integration package for Node.js and React applications",
+  "main": "index.js",
+  "scripts": {
+    "install:backend": "cd backend && npm install",
+    "install:frontend": "cd frontend && npm install",
+    "install:all": "npm run install:backend && npm run install:frontend",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "build:all": "npm run build:backend && npm run build:frontend",
+    "start:backend": "cd backend && npm start",
+    "dev:backend": "cd backend && npm run dev",
+    "test:backend": "cd backend && npm test",
+    "lint:backend": "cd backend && npm run lint",
+    "lint:frontend": "cd frontend && npm run lint",
+    "lint:all": "npm run lint:backend && npm run lint:frontend",
+    "clean": "rm -rf backend/node_modules frontend/node_modules backend/dist frontend/dist",
+    "setup": "npm run install:all && npm run build:all"
+  },
+  "keywords": [
+    "pesapal",
+    "payment",
+    "integration",
+    "mpesa",
+    "kenya",
+    "nodejs",
+    "react",
+    "typescript",
+    "express",
+    "mobile-money",
+    "cards",
+    "payment-gateway"
+  ],
+  "author": "PESA-INTER Package",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/pesa-inter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/pesa-inter/issues"
+  },
+  "homepage": "https://github.com/your-username/pesa-inter#readme",
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "files": [
+    "backend/",
+    "frontend/",
+    "config/",
+    "docs/",
+    "examples/",
+    "README.md",
+    "LICENSE"
+  ]
+}

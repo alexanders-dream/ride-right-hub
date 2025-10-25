@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface Listing {
-  id: number;
+  id: string;
   image: string;
   year: number;
   make: string;
@@ -23,7 +23,7 @@ interface ListingCardProps {
   listing: Listing;
   viewMode: "grid" | "list";
   isSaved: boolean;
-  onToggleSave: (id: number) => void;
+  onToggleSave: (id: string) => void;
 }
 
 const ListingCard = ({ listing, viewMode, isSaved, onToggleSave }: ListingCardProps) => {
@@ -68,7 +68,7 @@ const ListingCard = ({ listing, viewMode, isSaved, onToggleSave }: ListingCardPr
                 </div>
               </div>
               <p className="text-3xl font-bold text-primary">
-                ${listing.price.toLocaleString()}
+                KSh {listing.price.toLocaleString()}
               </p>
             </div>
             <div className="grid grid-cols-3 gap-4 text-sm">
@@ -129,7 +129,7 @@ const ListingCard = ({ listing, viewMode, isSaved, onToggleSave }: ListingCardPr
           {listing.year} {listing.make} {listing.model}
         </h3>
         <p className="text-2xl font-bold text-primary mb-3">
-          ${listing.price.toLocaleString()}
+          KSh {listing.price.toLocaleString()}
         </p>
         <div className="space-y-1 text-sm text-muted-foreground mb-3">
           <p>{listing.mileage.toLocaleString()} mi · {listing.engineSize}cc</p>

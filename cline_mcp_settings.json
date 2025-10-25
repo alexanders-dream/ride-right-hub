@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "github.com/upstash/context7-mcp": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@upstash/context7-mcp"],
+      "disabled": false,
+      "autoApprove": []
+    },
+    "github.com/tavily-ai/tavily-mcp": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "tavily-mcp@latest"],
+      "env": {
+        "TAVILY_API_KEY": "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"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}

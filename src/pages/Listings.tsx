@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Grid3x3, List, Map as MapIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -7,96 +7,80 @@ import Navbar from "@/components/Navbar";
 import ListingFilters from "@/components/ListingFilters";
 import ListingCard from "@/components/ListingCard";
 import Footer from "@/components/Footer";
+import { apiClient } from "@/services/api-client";
+import { ListingEntity } from "@/domain/entities/listing.entity";
 
-// Mock data
-const mockListings = [
-  {
-    id: 1,
-    image: "/placeholder.svg",
-    year: 2022,
-    make: "Harley-Davidson",
-    model: "Street Glide",
-    price: 24999,
-    mileage: 3200,
-    location: "Los Angeles, CA",
-    sellerType: "dealer" as const,
-    engineSize: 1868,
-    color: "Black"
-  },
-  {
-    id: 2,
-    image: "/placeholder.svg",
-    year: 2021,
-    make: "Yamaha",
-    model: "YZF-R1",
-    price: 16500,
-    mileage: 5800,
-    location: "San Diego, CA",
-    sellerType: "private" as const,
-    engineSize: 998,
-    color: "Blue"
-  },
-  {
-    id: 3,
-    image: "/placeholder.svg",
-    year: 2023,
-    make: "BMW",
-    model: "R 1250 GS",
-    price: 19999,
-    mileage: 1200,
-    location: "Phoenix, AZ",
-    sellerType: "dealer" as const,
-    engineSize: 1254,
-    color: "White"
-  },
-  {
-    id: 4,
-    image: "/placeholder.svg",
-    year: 2020,
-    make: "Ducati",
-    model: "Panigale V4",
-    price: 22000,
-    mileage: 4500,
-    location: "Las Vegas, NV",
-    sellerType: "private" as const,
-    engineSize: 1103,
-    color: "Red"
-  },
-  {
-    id: 5,
-    image: "/placeholder.svg",
-    year: 2022,
-    make: "Honda",
-    model: "Gold Wing",
-    price: 28500,
-    mileage: 2100,
-    location: "Denver, CO",
-    sellerType: "dealer" as const,
-    engineSize: 1833,
-    color: "Silver"
-  },
-  {
-    id: 6,
-    image: "/placeholder.svg",
-    year: 2021,
-    make: "Kawasaki",
-    model: "Ninja ZX-10R",
-    price: 15999,
-    mileage: 6200,
-    location: "Austin, TX",
-    sellerType: "private" as const,
-    engineSize: 998,
-    color: "Green"
-  },
-];
+// Interface for the ListingCard component
+interface ListingCardData {
+  id: string;
+  image: string;
+  year: number;
+  make: string;
+  model: string;
+  price: number;
+  mileage: number;
+  location: string;
+  sellerType: "dealer" | "private";
+  engineSize: number;
+  color: string;
+}
 
 const Listings = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
   const [searchQuery, setSearchQuery] = useState("");
-  const [savedListings, setSavedListings] = useState<number[]>([]);
+  const [savedListings, setSavedListings] = useState<string[]>([]);
+  const [listings, setListings] = useState<ListingCardData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+// Convert API response object to ListingCardData
+const convertListingToCardData = (listing: any): ListingCardData => {
+  // Handle both ListingEntity instances and plain objects from API
+  const price = typeof listing.price === 'object' && listing.price.getValue ? 
+    listing.price.getValue() : listing.price;
+  
+  const mileage = typeof listing.mileage === 'object' && listing.mileage.getValue ? 
+    listing.mileage.getValue() : listing.mileage;
+  
+  const location = typeof listing.location === 'object' && listing.location.getValue ? 
+    listing.location.getValue() : listing.location;
+
+  return {
+    id: listing.id, // Keep the original string ID
+    image: "/placeholder.svg", // Use placeholder image for now
+    year: listing.year,
+    make: listing.make,
+    model: listing.model,
+    price: price,
+    mileage: mileage,
+    location: location,
+    sellerType: listing.sellerType,
+    engineSize: listing.engineSize,
+    color: listing.color || "Unknown"
+  };
+};
+
+  // Fetch listings from API
+  useEffect(() => {
+    const fetchListings = async () => {
+      try {
+        setIsLoading(true);
+        const result = await apiClient.searchListings({});
+        const convertedListings = result.listings.map(convertListingToCardData);
+        setListings(convertedListings);
+      } catch (error) {
+        console.error('Failed to fetch listings:', error);
+        // Fallback to empty array if API fails
+        setListings([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchListings();
+  }, []);
 
   // Filter listings based on search query
-  const filteredListings = mockListings.filter(listing => {
+  const filteredListings = listings.filter(listing => {
     const searchLower = searchQuery.toLowerCase();
     return (
       listing.make.toLowerCase().includes(searchLower) ||
@@ -106,7 +90,7 @@ const Listings = () => {
     );
   });
 
-  const toggleSave = (id: number) => {
+  const toggleSave = (id: string) => {
     setSavedListings(prev => 
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
@@ -119,18 +103,18 @@ const Listings = () => {
       {/* Header with Search */}
       <div className="bg-card border-b border-border">
         <div className="container mx-auto px-4 py-6">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="relative flex-1 max-w-2xl">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search by make, model, or keyword..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+          <div className="flex items-center gap-4 mb-4">
+            <div className="relative flex-1 max-w-2xl">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search by make, model, or keyword..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
             </div>
+          </div>
           
           {/* Breadcrumb */}
           <Breadcrumb>
