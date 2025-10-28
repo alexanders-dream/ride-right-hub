@@ -49,7 +49,7 @@ const Cart = () => {
                           {item.mileage.toLocaleString()} mi • {item.engineSize}cc • {item.color}
                         </p>
                         <p className="text-2xl font-bold text-primary">
-                          ${item.price.toLocaleString()}
+                          KSh {item.price.toLocaleString()}
                         </p>
                       </div>
                       <Button
@@ -74,16 +74,16 @@ const Cart = () => {
                   <div className="space-y-4 mb-6">
                     <div className="flex justify-between text-lg">
                       <span className="text-muted-foreground">Subtotal</span>
-                      <span className="font-semibold">${cartTotal.toLocaleString()}</span>
+                      <span className="font-semibold">KSh {cartTotal.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between text-lg">
                       <span className="text-muted-foreground">Processing Fee</span>
-                      <span className="font-semibold">$99</span>
+                      <span className="font-semibold">KSh 99</span>
                     </div>
                     <Separator />
                     <div className="flex justify-between text-xl">
                       <span className="font-semibold">Total</span>
-                      <span className="font-bold text-primary">${(cartTotal + 99).toLocaleString()}</span>
+                      <span className="font-bold text-primary">KSh {(cartTotal + 99).toLocaleString()}</span>
                     </div>
                   </div>
 

@@ -1,0 +1,54 @@
+{
+  "name": "pesa-inter-backend",
+  "version": "1.0.0",
+  "description": "PESA-INTER Package - Backend PesaPal Integration",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "jest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "keywords": [
+    "pesapal",
+    "payment",
+    "integration",
+    "mpesa",
+    "kenya",
+    "nodejs",
+    "express"
+  ],
+  "author": "PESA-INTER Package",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.0.1",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "jest": "^29.7.0",
+    "eslint": "^8.54.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.1.1"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/pesa-inter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/pesa-inter/issues"
+  },
+  "homepage": "https://github.com/your-username/pesa-inter#readme"
+}

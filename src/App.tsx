@@ -8,9 +8,9 @@ import { CartProvider } from "./contexts/CartContext";
 import Index from "./pages/Index";
 import Listings from "./pages/Listings";
 import ListingDetail from "./pages/ListingDetail";
-import SellPage from "./pages/SellPage";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import SellerDashboard from "./pages/SellerDashboard";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import PricingGuide from "./pages/PricingGuide";
@@ -35,9 +35,9 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/listings" element={<Listings />} />
               <Route path="/listing/:id" element={<ListingDetail />} />
-              <Route path="/sell" element={<SellPage />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/seller-dashboard" element={<SellerDashboard />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/pricing-guide" element={<PricingGuide />} />

@@ -16,12 +16,14 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState<'buyer' | 'seller' | 'both' | 'admin'>('buyer');
-  const { login, signup } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { login, signup, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     try {
       if (isLogin) {
         await login(email, password);
@@ -39,6 +41,8 @@ const Auth = () => {
         description: error.message,
         variant: 'destructive',
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -80,7 +84,9 @@ const Auth = () => {
                       required
                     />
                   </div>
-                  <Button type="submit" className="w-full">Login</Button>
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? 'Logging in...' : 'Login'}
+                  </Button>
                 </form>
               </TabsContent>
               
@@ -137,7 +143,9 @@ const Auth = () => {
                       </div>
                     </RadioGroup>
                   </div>
-                  <Button type="submit" className="w-full">Create Account</Button>
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? 'Creating Account...' : 'Create Account'}
+                  </Button>
                 </form>
               </TabsContent>
             </Tabs>

@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Heart, Search, MessageSquare, Settings, BarChart3, Edit, Trash2 } from 'lucide-react';
+import { Heart, Search, MessageSquare, Settings, BarChart3, Edit, Trash2, Store, CreditCard, ShoppingCart, Package } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -79,7 +79,19 @@ const Dashboard = () => {
             <h1 className="text-3xl font-bold">Dashboard</h1>
             <p className="text-muted-foreground">Welcome back, {user?.name}</p>
           </div>
-          <Button variant="outline" onClick={logout}>Logout</Button>
+          <div className="flex gap-2">
+            {isSeller && (
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/seller-dashboard')}
+                className="flex items-center gap-2"
+              >
+                <Store className="w-4 h-4" />
+                Seller Dashboard
+              </Button>
+            )}
+            <Button variant="outline" onClick={logout}>Logout</Button>
+          </div>
         </div>
 
         <Tabs defaultValue={isSeller ? "listings" : "favorites"} className="space-y-6">
@@ -87,6 +99,8 @@ const Dashboard = () => {
             {isSeller && <TabsTrigger value="listings">My Listings</TabsTrigger>}
             {isBuyer && <TabsTrigger value="favorites">Favorites</TabsTrigger>}
             {isBuyer && <TabsTrigger value="searches">Saved Searches</TabsTrigger>}
+            {isBuyer && <TabsTrigger value="orders">My Orders</TabsTrigger>}
+            {isBuyer && <TabsTrigger value="payments">Payment History</TabsTrigger>}
             <TabsTrigger value="messages">Messages</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
@@ -116,7 +130,7 @@ const Dashboard = () => {
                             <div className="flex justify-between items-start mb-2">
                               <div>
                                 <h3 className="font-semibold text-lg">{listing.title}</h3>
-                                <p className="text-2xl font-bold text-primary">${listing.price.toLocaleString()}</p>
+                                <p className="text-2xl font-bold text-primary">KSh {listing.price.toLocaleString()}</p>
                               </div>
                               <Badge variant={listing.status === 'active' ? 'default' : listing.status === 'sold' ? 'secondary' : 'outline'}>
                                 {listing.status}
@@ -173,7 +187,7 @@ const Dashboard = () => {
                       <img src={bike.image} alt={bike.title} className="w-full h-48 object-cover" />
                       <CardContent className="p-4">
                         <h3 className="font-semibold mb-2">{bike.title}</h3>
-                        <p className="text-xl font-bold text-primary mb-4">${bike.price.toLocaleString()}</p>
+                        <p className="text-xl font-bold text-primary mb-4">KSh {bike.price.toLocaleString()}</p>
                         <div className="flex gap-2">
                           <Button size="sm" className="flex-1" onClick={() => navigate(`/listing/${bike.id}`)}>
                             View Details
@@ -223,6 +237,32 @@ const Dashboard = () => {
                   ))}
                 </div>
               )}
+            </TabsContent>
+          )}
+
+          {isBuyer && (
+            <TabsContent value="orders" className="space-y-6">
+              <h2 className="text-2xl font-semibold">My Orders</h2>
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Package className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground mb-4">You haven't placed any orders yet.</p>
+                  <Button onClick={() => navigate('/listings')}>Browse Motorcycles</Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
+          {isBuyer && (
+            <TabsContent value="payments" className="space-y-6">
+              <h2 className="text-2xl font-semibold">Payment History</h2>
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <CreditCard className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground mb-4">No payment history available.</p>
+                  <Button onClick={() => navigate('/cart')}>View Cart</Button>
+                </CardContent>
+              </Card>
             </TabsContent>
           )}
 
